@@ -1,0 +1,9 @@
+.Formulario__container form {
+  display: flex;
+  flex-direction: column;
+  background-color: beige;
+  width: 25vw;
+}
+.Formulario__container input {
+  width: 200px;
+}
