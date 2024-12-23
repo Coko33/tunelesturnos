@@ -11,6 +11,7 @@ import Formulario from "./Formulario";
 dayjs.locale("es");
 const turnosRef = collection(db, "turnos");
 const turnosMax = 2;
+const turnosMaxByHour = 2;
 
 export default function Calendario() {
   const localizer = dayjsLocalizer(dayjs);
@@ -18,6 +19,7 @@ export default function Calendario() {
   const [view, setView] = useState("month");
   const [diaSeleccionado, setDiaSeleccionado] = useState();
   const [eventCountByDay, setEventCountByDay] = useState({});
+  const [eventCountByHour, setEventCountByHour] = useState({});
   const [turnoSeleccionado, setTurnoSeleccionado] = useState("");
 
   useEffect(() => {
@@ -37,13 +39,20 @@ export default function Calendario() {
       title: t.title,
     }));
     setTurnos([]);
-    // Agrupar eventos por día
-    const counts = turnosFormated.reduce((acc, t) => {
+    //contar eventos por día
+    const countsByDay = turnosFormated.reduce((acc, t) => {
       const dayKey = dayjs(t.start).format("YYYY-MM-DD");
       acc[dayKey] = (acc[dayKey] || 0) + 1;
       return acc;
     }, {});
-    setEventCountByDay(counts);
+    setEventCountByDay(countsByDay);
+    //contar eventos por hora
+    const countsByHour = turnosFormated.reduce((acc, t) => {
+      const HourKey = dayjs(t.start).format("YYYY-MM-DD HH:mm");
+      acc[HourKey] = (acc[HourKey] || 0) + 1;
+      return acc;
+    }, {});
+    setEventCountByHour(countsByHour);
   };
 
   const fetchItemsForDay = async (selectedDay) => {
@@ -58,7 +67,6 @@ export default function Calendario() {
       where("start", ">=", startOfDay),
       where("start", "<=", endOfDay)
     );
-
     const querySnapshot = await getDocs(q);
     const turnosList = querySnapshot.docs.map((doc) => doc.data());
     const turnosFormated = turnosList.map((t) => ({
@@ -81,7 +89,7 @@ export default function Calendario() {
     if (view === "month") {
       setDiaSeleccionado(start);
       setView("day");
-    } else if (view === "day") {
+    } else if (view === "day" && !estaOcupado(start)) {
       setTurnoSeleccionado(start);
     }
   };
@@ -92,6 +100,22 @@ export default function Calendario() {
     }
   };
 
+  const estaOcupado = (value) => {
+    const hourFormated = dayjs(value).format("YYYY-MM-DD HH:mm");
+    if (turnos.length === 0) {
+      return false;
+    }
+    return eventCountByHour[hourFormated] >= turnosMaxByHour;
+    /* return turnos.some((turno) =>
+      dayjs(value).isSame(dayjs(turno.start), "minute")
+    ); */
+  };
+
+  const estaSeleccionado = (value) => {
+    return dayjs(value).isSame(dayjs(turnoSeleccionado), "minute");
+  };
+
+  //celdas en la vista mes
   const CustomDateCellWrapper = ({ value, children }) => {
     const dayKey = dayjs(value).format("YYYY-MM-DD");
     const eventCount = eventCountByDay[dayKey] || 0;
@@ -120,7 +144,7 @@ export default function Calendario() {
               position: "absolute",
               bottom: 0,
               right: 0,
-              backgroundColor: eventCount === turnosMax ? "red" : "limegreen",
+              backgroundColor: eventCount >= turnosMax ? "red" : "limegreen",
               borderRadius: "7px 7px 0 0",
               color: "white",
               width: "100%",
@@ -132,13 +156,16 @@ export default function Calendario() {
               zIndex: 2000,
             }}
           >
-            {eventCount === turnosMax ? "completo" : "disponible"}
+            {eventCount >= turnosMax ? "completo" : "disponible"}
           </div>
         )}
       </div>
     );
   };
+
+  //celdas en la vista dia
   const CustomTimeSlotWrapper = ({ value, children }) => {
+    estaSeleccionado(value);
     const wrapperRef = useRef(null);
     const [isInsideDaySlot, setIsInsideDaySlot] = useState(false);
 
@@ -163,9 +190,13 @@ export default function Calendario() {
           <div
             style={{
               position: "relative",
-              backgroundColor: "limegreen",
+              backgroundColor: estaSeleccionado(value)
+                ? "yellow"
+                : estaOcupado(value)
+                ? "red"
+                : "limegreen",
               borderRadius: "6px",
-              color: "white",
+              color: estaSeleccionado(value) ? "black" : "white",
               width: "50%",
               left: "25%",
               height: "18px",
@@ -177,7 +208,12 @@ export default function Calendario() {
               cursor: "pointer",
             }}
           >
-            {"disponible"}
+            {estaSeleccionado(value)
+              ? "seleccionado"
+              : estaOcupado(value)
+              ? "ocupado " +
+                eventCountByHour[dayjs(value).format("YYYY-MM-DD HH:mm")]
+              : "disponible"}
           </div>
         )}
       </div>
