@@ -86,7 +86,8 @@ export default function Calendario() {
   };
 
   const handleSelectSlot = ({ start, end }) => {
-    if (view === "month") {
+    console.log(start, end)
+    if (view === "month" && !esDiaPasado(start)) {
       setDiaSeleccionado(start);
       setView("day");
     } else if (view === "day" && !estaOcupado(start)) {
@@ -114,6 +115,10 @@ export default function Calendario() {
   const estaSeleccionado = (value) => {
     return dayjs(value).isSame(dayjs(turnoSeleccionado), "minute");
   };
+
+  const esDiaPasado = (value) => {
+    return dayjs(value).isBefore(dayjs(), "day");
+  }
 
   //celdas en la vista mes
   const CustomDateCellWrapper = ({ value, children }) => {
@@ -144,7 +149,7 @@ export default function Calendario() {
               position: "absolute",
               bottom: 0,
               right: 0,
-              backgroundColor: eventCount >= turnosMax ? "red" : "limegreen",
+              backgroundColor: esDiaPasado(value) ? "gray" : eventCount >= turnosMax ? "red" : "limegreen",
               borderRadius: "7px 7px 0 0",
               color: "white",
               width: "100%",
@@ -156,7 +161,7 @@ export default function Calendario() {
               zIndex: 2000,
             }}
           >
-            {eventCount >= turnosMax ? "completo" : "disponible"}
+            {esDiaPasado(value) ? "" : eventCount >= turnosMax ? "completo" : "disponible"}
           </div>
         )}
       </div>
@@ -221,7 +226,7 @@ export default function Calendario() {
   };
 
   return (
-    <div className="Calendar__container">
+    <div className={`Calendar__container view-${view}`}>
       <div
         style={{
           height: "50vh",

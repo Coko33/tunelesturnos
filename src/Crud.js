@@ -1,31 +1,31 @@
 import React, { useState, useEffect } from "react";
-import { db } from "./firebase"; // Importa la configuración de Firebase
+import { db } from "./firebase";
 import { collection, getDocs, addDoc } from "firebase/firestore";
 
 function Crud() {
   const [items, setItems] = useState([]);
   const [newItem, setNewItem] = useState("");
 
-  // Leer los documentos de Firestore
+  // Leer 
   const fetchItems = async () => {
     const querySnapshot = await getDocs(collection(db, "items"));
     const itemsList = querySnapshot.docs.map((doc) => doc.data());
     setItems(itemsList);
   };
 
-  // Escribir un nuevo documento en Firestore
+  // Escribir 
   const addItem = async () => {
     if (newItem) {
       await addDoc(collection(db, "items"), {
         name: newItem,
       });
       setNewItem("");
-      fetchItems(); // Refresca la lista de items
+      fetchItems(); // Actualiza
     }
   };
 
   useEffect(() => {
-    fetchItems(); // Cargar los items cuando el componente se monta
+    fetchItems(); 
   }, []);
 
   return (
