@@ -6,9 +6,9 @@ import Crud from "./Crud";
 function App() {
   return (
     <>
-      <Turnos></Turnos>
+      {/* <Turnos></Turnos> */}
       <Calendario></Calendario>
-      <Crud></Crud>
+      {/* <Crud></Crud> */}
     </>
   );
 }

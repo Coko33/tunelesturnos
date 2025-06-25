@@ -8,10 +8,12 @@ import dayjs from "dayjs";
 import "dayjs/locale/es";
 import "./Calendar.css";
 import Formulario from "./Formulario";
+import { useEsMovil } from "./useEsMovil";
 dayjs.locale("es");
 const turnosRef = collection(db, "turnos");
-const turnosMax = 2;
+const turnosMax = 3;
 const turnosMaxByHour = 2;
+
 
 export default function Calendario() {
   const localizer = dayjsLocalizer(dayjs);
@@ -21,6 +23,11 @@ export default function Calendario() {
   const [eventCountByDay, setEventCountByDay] = useState({});
   const [eventCountByHour, setEventCountByHour] = useState({});
   const [turnoSeleccionado, setTurnoSeleccionado] = useState("");
+
+  const esMovil = useEsMovil();
+  if (esMovil) {
+    console.log(esMovil)
+  }
 
   useEffect(() => {
     if (view === "day") {
@@ -149,7 +156,7 @@ export default function Calendario() {
               position: "absolute",
               bottom: 0,
               right: 0,
-              backgroundColor: esDiaPasado(value) ? "gray" : eventCount >= turnosMax ? "red" : "limegreen",
+              backgroundColor: esDiaPasado(value) ? "#eeeeee" : eventCount >= turnosMax ? "red" : "limegreen",
               borderRadius: "7px 7px 0 0",
               color: "white",
               width: "100%",
@@ -186,7 +193,7 @@ export default function Calendario() {
         style={{
           position: "relative",
           width: "100%",
-          height: "20px",
+          height: "30px",
           overflow: "visible",
         }}
       >
@@ -204,7 +211,8 @@ export default function Calendario() {
               color: estaSeleccionado(value) ? "black" : "white",
               width: "50%",
               left: "25%",
-              height: "18px",
+              top: "1px",
+              height: "28px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -226,13 +234,9 @@ export default function Calendario() {
   };
 
   return (
-    <div className={`Calendar__container view-${view}`}>
-      <div
-        style={{
-          height: "50vh",
-          width: "50vw",
-        }}
-      >
+    <>
+      <Formulario turnoSeleccionado={turnoSeleccionado}></Formulario>
+      <div className={`Calendar__container view-${view}`}>
         <Calendar
           localizer={localizer}
           events={turnos}
@@ -263,7 +267,6 @@ export default function Calendario() {
           }}
         />
       </div>
-      <Formulario turnoSeleccionado={turnoSeleccionado}></Formulario>
-    </div>
+    </>
   );
 }

@@ -1,35 +1,55 @@
+* {
+  --marginMob: 20px;
+  --widthMob: calc(100% - 40px);
+}
 .rbc-day-bg {
   background-color: white;
 }
-
 .rbc-today {
   background-color: rgba(0, 123, 255, 0.2);
 }
-
 .view-month .rbc-today {
   height: 100%;
 }
-
 .view-day .rbc-today,
 .view-week .rbc-today,
 .view-agenda .rbc-today {
   height: inherit;
 }
-
 .rbc-off-range-bg {
   background-color: #d8d8d8;
   height: 100%;
 }
-
 .Calendar__container {
+  position: relative;
+  width: 50%;
+  height: 50vh;
+  left: 25%;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
 }
-
+@media (max-width: 600px) {
+  .Calendar__container {
+    width: var(--widthMob);
+    left: var(--marginMob)
+  }
+}
 .rbc-events-container {
   display: none;
 }
-
 .rbc-timeslot-group {
   display: inline;
 }
+* {
+  border-color: rgb(173, 173, 173) !important;
+} 
+.rbc-time-column .rbc-timeslot-group {
+  flex: inherit;
+}
+.rbc-timeslot-group {
+  min-width: 60px;
+  height: 60px;
+}
+/* .rbc-day-slot .rbc-timeslot-group {
+  border-bottom: none;
+} */
