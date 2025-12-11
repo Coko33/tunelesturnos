@@ -37,9 +37,6 @@
 .rbc-events-container {
   display: none;
 }
-.rbc-timeslot-group {
-  display: inline;
-}
 * {
   border-color: rgb(173, 173, 173) !important;
 } 
@@ -48,8 +45,101 @@
 }
 .rbc-timeslot-group {
   min-width: 60px;
-  height: 60px;
+  height: 120px;
 }
-/* .rbc-day-slot .rbc-timeslot-group {
+.rbc-time-slot {
+    background-color: white !important;
+}
+.rbc-time-content, .rbc-day-slot .rbc-events-container {
+    background-color: white !important;
+}
+.rbc-day-slot {
+    background-color: white !important;
+}
+/* 
+.rbc-day-slot .rbc-timeslot-group {
   border-bottom: none;
-} */
+} 
+*/
+.event-count-indicator {
+  justify-content: center;
+  position: relative;
+  width: 90%;
+  left: 5%;
+  background-color: aquamarine;
+  color: white;
+  font-size: 10px;
+  text-align: center;
+}
+.event-count-indicator.past-day, .event-count-indicator.disabled-day{
+  display: none;
+}
+.time-slot-indicator {
+  position: "absolute";
+  border-radius: "6px";
+  width: "50%";
+  left: "25%";
+  top: "1px";
+  height: "28px";
+  display: "flex";
+  align-items: "center";
+  justify-content: "center";
+  font-size: "12px";
+  z-index: 10;
+  cursor: "pointer";
+}
+.sbc-row, .rbc-row-segment {
+  display: none;
+}
+.custom-time-slot-wrapper {
+  position: relative;
+}
+.custom-time-slot-wrapper > .full, .custom-time-slot-wrapper > .available, .custom-time-slot-wrapper > .selected {
+  background-color: violet;
+}
+
+.rbc-time-gutter .rbc-timeslot-group > .full,
+.rbc-time-gutter .rbc-timeslot-group > .available,
+.rbc-time-gutter .rbc-timeslot-group > .selected {
+    display: none !important;
+}
+
+.rbc-day-slot .full,
+.rbc-day-slot .available,
+.rbc-day-slot .selected {
+  position: relative;
+  height: 30px;
+  border-radius: 4px;
+  margin-top: 2px;
+  width: 90%;
+  left: 5%;
+  text-align: center;
+  bottom: 5px;
+}
+
+.full {
+  background-color: rgb(210, 41, 41);
+}
+.available {
+  background-color: rgb(42, 185, 42); 
+}
+.selected {
+  background-color: yellow;
+}
+
+.rbc-timeslot-group > .full {
+  color: white;
+}
+.rbc-timeslot-group > .available {
+  color: white;
+}
+.rbc-timeslot-group > .selected {
+  color:black
+}
+
+.full:hover, .available:hover, .selected:hover {
+  cursor: pointer;
+}
+.rbc-day-bg.custom-date-cell-wrapper .event-count-indicator.full {
+    cursor: not-allowed;
+}
