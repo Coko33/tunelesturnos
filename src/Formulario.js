@@ -67,10 +67,12 @@ export default function Formulario({ turnoSeleccionado, onClose }) {
     if (isValidForm(form)) {
       setLoading(true);
       try {
-        await addDoc(collection(db, "turnos"), form);
+        //await addDoc(collection(db, "turnos"), form);
+        await addDoc(collection(db, "reservas_pendientes"), form);
         setForm(formVacio);
-        setErrors({}); // Limpiar errores después de un envío exitoso
-        setSubmissionMessage("Turno reservado con éxito");
+        setErrors({}); 
+        //setSubmissionMessage("Turno reservado con éxito");
+        setSubmissionMessage("¡Casi listo! Revisa tu email para confirmar la reserva.");
       } catch (error) {
         console.error("Error al reservar turno:", error);
         setSubmissionMessage("Error al reservar el turno. Inténtalo de nuevo.");
@@ -168,14 +170,14 @@ export default function Formulario({ turnoSeleccionado, onClose }) {
       </form>
       {submissionMessage && (
         <p
-          className={submissionMessage.includes("éxito") ? "success-message" : "error-message"}
+          className={submissionMessage.includes("¡Casi listo!") ? "success-message" : "error-message"}
         >
           {submissionMessage}
         </p>
       )}
-      {submissionMessage.includes("éxito") && (
+      {submissionMessage.includes("¡Casi listo!") && (
         <div className="Formulario__disclaimer">
-          <p>Importante: </p><p>Tienes 10 minutos para confirmar esta reserva ingresando a tu email. Pasado ese tiempo, tu reserva quedará liberada y tendras que volver a reservar un turno.</p>
+          <p><strong>Importante:</strong> Tienes 10 minutos para confirmar esta reserva desde el enlace que te enviamos a tu email. Pasado ese tiempo, la reserva se liberará.</p>
         </div>)}
       </div>
     </div>
