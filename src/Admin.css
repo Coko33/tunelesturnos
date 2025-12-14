@@ -1,0 +1,96 @@
+.admin__headerContainer {
+    display: flex;
+    justify-content: space-between; /* Alinea título a la izquierda y botón a la derecha */
+    align-items: center;
+    padding: 20px;
+    border-bottom: 2px solid #eee;
+    margin-bottom: 20px;
+}
+
+.admin__headerContainer h1 {
+    color: #333;
+    font-size: 24px;
+}
+
+.admin__headerContainer button {
+    padding: 8px 15px;
+    background-color: #dc3545; /* Rojo para Salir */
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.admin__headerContainer button:hover {
+    background-color: #c82333;
+}
+
+.admin__tableContainer {
+    padding: 0 20px;
+    overflow-x: auto; 
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    background-color: white;
+    table-layout: fixed;
+}
+
+thead th {
+    color: rgb(0, 0, 0);
+    padding: 12px 15px;
+    text-align: left;
+    font-weight: bold;
+    border: 2px solid #919191;
+}
+
+thead th:nth-child(1) { width: 10%; } /* Fecha */
+thead th:nth-child(2) { width: 10%; } /* Nombre */
+thead th:nth-child(3) { width: 10%; } /* Apellido */
+thead th:nth-child(4) { width: 5%; } /* Edad */
+thead th:nth-child(5) { width: 25%; } /* Email*/
+thead th:nth-child(6) { width: 10%; } /* Hora Turno */
+thead th:nth-child(7) { width: 10%; } /* Start (App) */
+thead th:nth-child(8) { width: 10%; } /* End (App) */
+thead th:nth-child(9) { width: 10%; } /* Acciones */
+
+tbody td {
+    padding: 12px 15px;
+    border: 1px solid #dee2e6;
+    vertical-align: middle;
+    text-align: left;
+}
+
+tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+tbody tr:hover {
+    background-color: #e9ecef;
+}
+
+tbody td button {
+    padding: 5px 10px;
+    background-color: #ffc107;
+    color: #333;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+tbody td button:hover {
+    background-color: #e0a800;
+}
+
+.fecha-rowspan {
+    background-color: #ffffff;
+    font-weight: bold;
+    text-align: center;
+    vertical-align: top;
+    border: 2px solid #919191;
+}
