@@ -25,6 +25,7 @@
   width: 50%;
   height: 50vh;
   left: 25%;
+  top: 100px;
   display: flex;
   flex-direction: column;
 }
@@ -37,9 +38,9 @@
 .rbc-events-container {
   display: none;
 }
-* {
+/* * {
   border-color: rgb(173, 173, 173) !important;
-} 
+}  */
 .rbc-time-column .rbc-timeslot-group {
   flex: inherit;
 }
@@ -115,13 +116,18 @@
   left: 5%;
   text-align: center;
   bottom: 5px;
+    display: grid;
+  place-items: center;
+  font-size: 14px;
+  line-height: 14px;
 }
 
 .full {
-  background-color: rgb(210, 41, 41);
+  background-color: crimson;
+
 }
 .available {
-  background-color: rgb(42, 185, 42); 
+  background-color: var(--verde); 
 }
 .selected {
   background-color: yellow;

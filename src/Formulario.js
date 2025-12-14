@@ -3,7 +3,8 @@ import { addDoc, collection } from "firebase/firestore";
 import { db } from "./firebase";
 import "./Formulario.css";
 import dayjs from "dayjs";
-export default function Formulario({ turnoSeleccionado }) {
+import CerrarIcon from "./CerrarIcon";
+export default function Formulario({ turnoSeleccionado, onClose }) {
   const formVacio = {
     nombre: "",
     apellido: "",
@@ -51,8 +52,11 @@ export default function Formulario({ turnoSeleccionado }) {
     }
     const ageRegex = /^(?:1[01][0-9]|120|[1-9][0-9]?)$/;
     if (!ageRegex.test(form.edad)) {
-      newErrors.edad = "La edad debe ser un número entre 1 y 120.";
+      newErrors.edad = "Debes ingresar tu edad para reservar";
+    } else if (Number(form.edad) < 18) {
+      newErrors.edad = "Debes ser mayor de 18 para reservar";
     }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -66,7 +70,7 @@ export default function Formulario({ turnoSeleccionado }) {
         await addDoc(collection(db, "turnos"), form);
         setForm(formVacio);
         setErrors({}); // Limpiar errores después de un envío exitoso
-        setSubmissionMessage("¡Turno confirmado con éxito!");
+        setSubmissionMessage("Turno reservado con éxito");
       } catch (error) {
         console.error("Error al reservar turno:", error);
         setSubmissionMessage("Error al reservar el turno. Inténtalo de nuevo.");
@@ -94,10 +98,21 @@ export default function Formulario({ turnoSeleccionado }) {
     }
   };
 
+  const turnoDisplay = turnoSeleccionado
+    ? dayjs(turnoSeleccionado).format("dddd D [de] MMMM [a las] HH:mm")
+    : "";
+
   return (
-    <div className="Formulario__container">
-      <form onSubmit={handleSubmit}>
-        <label htmlFor="nombre">Nombre</label>
+    <div className="Formulario__canvas">
+      <div className="Formulario__container">
+        <div className="Formulario__button" onClick={onClose}>
+            <CerrarIcon />
+        </div>
+        <form onSubmit={handleSubmit}>
+        <div className="labelYError">
+          <label htmlFor="nombre">Nombre</label>
+          {errors.nombre && <p className="error-message">{errors.nombre}</p>}
+        </div>
         <input
           type="text"
           value={form.nombre}
@@ -106,41 +121,48 @@ export default function Formulario({ turnoSeleccionado }) {
           ref={inputRef}
           placeholder={turnoSeleccionado ? "Escribe tu nombre" : ""}
         ></input>
-        {errors.nombre && <p className="error-message">{errors.nombre}</p>}
-        <label htmlFor="apellido">Apellido</label>
+        <div className="labelYError">
+          <label htmlFor="apellido">Apellido</label>
+          {errors.apellido && <p className="error-message">{errors.apellido}</p>}
+        </div>
         <input
           type="text"
           value={form.apellido}
           onChange={handleChange}
           name="apellido"
         ></input>
-        {errors.apellido && <p className="error-message">{errors.apellido}</p>}
-        <label htmlFor="edad">Edad</label>
+        <div className="labelYError">
+          <label htmlFor="edad">Edad</label>
+          {errors.edad && <p className="error-message">{errors.edad}</p>}
+        </div>
         <input
-          type="text"
+          type="number"
           value={form.edad}
           onChange={handleChange}
           name="edad"
         ></input>
-        {errors.edad && <p className="error-message">{errors.edad}</p>}
-        <label htmlFor="email">Email</label>
+        <div className="labelYError">
+          <label htmlFor="email">Email</label>
+          {errors.email && <p className="error-message">{errors.email}</p>}
+        </div>
         <input
           type="email"
           value={form.email}
           onChange={handleChange}
           name="email"
         ></input>
-        {errors.email && <p className="error-message">{errors.email}</p>}
-        <label htmlFor="turno">Turno</label>
+        
+        <label htmlFor="turno">Turno seleccionado</label>
         <input
           type="text"
-          value={turnoSeleccionado}
+          value={turnoDisplay}
           readOnly
           name="turno"
+          tabIndex="-1"
         ></input>
         <div className="Formulario__ctaContainer">
           <button type="submit" disabled={loading}>
-            {loading ? "Reservando..." : "Reservar"}
+            {loading ? "Reservando..." : "Reservar turno"}
           </button>
         </div>
       </form>
@@ -151,6 +173,11 @@ export default function Formulario({ turnoSeleccionado }) {
           {submissionMessage}
         </p>
       )}
+      {submissionMessage.includes("éxito") && (
+        <div className="Formulario__disclaimer">
+          <p>Importante: </p><p>Tienes 10 minutos para confirmar esta reserva ingresando a tu email. Pasado ese tiempo, tu reserva quedará liberada y tendras que volver a reservar un turno.</p>
+        </div>)}
+      </div>
     </div>
   );
 }

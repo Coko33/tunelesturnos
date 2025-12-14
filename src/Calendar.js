@@ -33,6 +33,7 @@ export default function Calendario() {
   const [turnoSeleccionado, setTurnoSeleccionado] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [mostrarFormulario, setMostrarFormulario] = useState(false);
 
   const esMovil = useEsMovil();
 
@@ -138,8 +139,15 @@ export default function Calendario() {
       setView("day");
     } else if (view === "day" && !estaOcupado(start)) {
       setTurnoSeleccionado(start);
+      setMostrarFormulario(true);
     }
   };
+
+  const cerrarFormulario = () => {
+    setMostrarFormulario(false);
+    setTurnoSeleccionado(""); // Limpiar la selección de turno
+    // También podrías forzar el cambio de vista o navegación aquí si lo deseas
+  };
 
   const handleNavigate = (date) => {
     /* if (view === "month") {
@@ -187,6 +195,7 @@ export default function Calendario() {
 
     return Math.max(0, turnosMax - eventosReservados);
   };
+
 
   const CustomDateCellWrapper = ({ value, children }) => {
     const dayKey = dayjs(value).format("YYYY-MM-DD");
@@ -236,18 +245,19 @@ export default function Calendario() {
     const startTime = dayjs(value);
     const endTime = startTime.add(20, 'minute'); 
     const formattedStart = startTime.format('HH:mm');
-    const formattedEnd = endTime.format('HH:mm');
-    const timeRange = ` de ${formattedStart} a ${formattedEnd}`;
-    let status = estaSeleccionado(value) ? "seleccionado" : estaOcupado(value) ? "ocupado " + eventCountByHour[dayjs(value).format("YYYY-MM-DD HH:mm")] : "disponible";
+    //const formattedEnd = endTime.format('HH:mm');
+    // const timeRange = ` de ${formattedStart} a ${formattedEnd}`;
+    let status = estaSeleccionado(value) ? "seleccionado" : estaOcupado(value) ? "ocupado " : "disponible"; //eventCountByHour[dayjs(value).format("YYYY-MM-DD HH:mm")]
     let className = estaSeleccionado(value) ? 'selected' : (estaOcupado(value) ? 'full' : 'available');
 
-    const newContent = `${status}${timeRange}`;
+    const contentAvailable = `${status}${formattedStart}`; //${timeRange};
+    const contentFull = `${status}`;
     return (
       <>
         {children}
         {isDayViewSlot && !isGutterSlot && (
           <div className = {className}>
-            {newContent}
+            {estaOcupado(value) ? contentFull : contentAvailable}
           </div>
         )}
       </>
@@ -256,7 +266,12 @@ export default function Calendario() {
   
   return (
     <>
-      <Formulario turnoSeleccionado={turnoSeleccionado}></Formulario>
+      {mostrarFormulario && (
+        <Formulario 
+          turnoSeleccionado={turnoSeleccionado}
+          onClose={cerrarFormulario}
+        />
+      )}
       <div className={`Calendar__container view-${view}`}>
         <Calendar
           localizer={localizer}
