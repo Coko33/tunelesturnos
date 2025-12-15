@@ -4,12 +4,17 @@ import { db } from "./firebase";
 import "./Formulario.css";
 import dayjs from "dayjs";
 import CerrarIcon from "./CerrarIcon";
-export default function Formulario({ turnoSeleccionado, onClose }) {
+
+const RESERVAS_PENDIENTES_REF = collection(db, "reservas_pendientes");
+const TURNOS_CONFIRMADOS_REF = collection(db, "turnos"); 
+
+export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisponibles = 6 }) {
   const formVacio = {
     nombre: "",
     apellido: "",
     edad: "",
     email: "",
+    cantidadPersonas: "1",
     turno: "",
     start: "",
     end: "",
@@ -55,6 +60,12 @@ export default function Formulario({ turnoSeleccionado, onClose }) {
       newErrors.edad = "Debes ingresar tu edad para reservar";
     } else if (Number(form.edad) < 18) {
       newErrors.edad = "Debes ser mayor de 18 para reservar";
+    }
+    const numPeople = Number(form.cantidadPersonas);
+    if (isNaN(numPeople) || numPeople < 1) {
+      newErrors.cantidadPersonas = "Debe ser al menos 1 persona.";
+    } else if (numPeople > maxPersonasDisponibles) { 
+      newErrors.cantidadPersonas = `El límite de personas para este turno es ${maxPersonasDisponibles}.`;
     }
 
     setErrors(newErrors);
@@ -152,6 +163,19 @@ export default function Formulario({ turnoSeleccionado, onClose }) {
           value={form.email}
           onChange={handleChange}
           name="email"
+        ></input>
+        <div className="labelYError">
+          <label htmlFor="cantidadPersonas">Cantidad de visitantes</label>
+          {errors.cantidadPersonas && <p className="error-message">{errors.cantidadPersonas}</p>}
+        </div>
+        <input
+          type="number"
+          value={form.cantidadPersonas}
+          onChange={handleChange}
+          name="cantidadPersonas"
+          min="1"
+          max="6"
+          required
         ></input>
         
         <label htmlFor="turno">Turno seleccionado</label>
