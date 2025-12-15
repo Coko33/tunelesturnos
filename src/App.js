@@ -4,6 +4,7 @@ import Login from "./Login";
 import Calendario from "./Calendar";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./AuthContext";
+import ConfirmacionExitosa from "./ConfirmacionExitosa";
 
 const RutaProtegida = ({ element: Element }) => {
   const { user, loading } = useAuth();
@@ -26,6 +27,7 @@ function App() {
         <Route path="/admin" element={<RutaProtegida element={Admin} />} />
         <Route path="/" element={<Calendario/>} />
         <Route path="*" element={<h1>404: Página no encontrada</h1>} />
+        <Route path="/confirmacion-exitosa" element={<ConfirmacionExitosa />} />
       </Routes>
       </AuthProvider>
     </BrowserRouter>

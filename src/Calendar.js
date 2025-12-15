@@ -13,6 +13,7 @@ dayjs.locale("es");
 const turnosRef = collection(db, "turnos");
 const turnosMaxByDay = 54;
 const turnosMaxBySlot = 6;
+//const capacidadMaximaPersonasBySlot = 6;
 const horaMin = 15;
 const horaMax = 18;
 
@@ -173,7 +174,7 @@ export default function Calendario() {
   const esDiaNoLaborable = (date) => {
     const dayjsDate = dayjs(date);
     const dayOfWeek = dayjsDate.day(); // 0 = Domingo, 1 = Lunes, 2 = Martes
-    if (dayOfWeek === 1 || dayOfWeek === 2) {
+    if (dayOfWeek === 1 || dayOfWeek === 2 || dayOfWeek === 3 || dayOfWeek === 4 || dayOfWeek === 5) {
       return true;
     }
 
