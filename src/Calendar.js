@@ -8,6 +8,7 @@ import dayjs from "dayjs";
 import "dayjs/locale/es";
 import "./Calendar.css";
 import Formulario from "./Formulario";
+import Instructivo from "./Instructivo";
 import { useEsMovil } from "./useEsMovil";
 dayjs.locale("es");
 const turnosRef = collection(db, "turnos");
@@ -35,16 +36,15 @@ export default function Calendario() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
-  const [maxPersonasDisponibles, setFormularioMax] = useState(0);
-
+  const [maxPersonasDisponibles, setMaxPersonasDisponibles] = useState(0);
   const esMovil = useEsMovil();
 
- useEffect(() => {
- const fecha = diaSeleccionado || new Date();
- if (view === 'month') {
- fetchItems(fecha);
+  useEffect(() => {
+    const fecha = diaSeleccionado || new Date();
+    if (view === 'month') {
+      fetchItems(fecha);
     } else if (view === 'day') {
- fetchItemsForDay(fecha);
+      fetchItemsForDay(fecha);
     }
   }, [diaSeleccionado, view]);
 
@@ -59,8 +59,6 @@ export default function Calendario() {
     try {
       // Considerar filtrar por un rango de fechas (ej. mes actual) para evitar cargar todos los turnos
       const querySnapshot = await getDocs(turnosRef);
-
-      
       const turnosList = querySnapshot.docs.map((doc) => ({
         ...doc.data(), 
         cantidadPersonas: Number(doc.data().cantidadPersonas || 1) 
@@ -135,24 +133,6 @@ export default function Calendario() {
     }
   };
 
-  // Nueva función para obtener el número de personas ya reservadas
-  const obtenerPersonasReservadas = (value) => {
-      const hourFormated = dayjs(value).format("YYYY-MM-DD HH:mm");
-      return eventCountByHour[hourFormated] || 0;
-  };
-
-  // Función para verificar si el slot está totalmente lleno
-  const estaTotalmenteLlenoPorPersonas = (value) => {
-      const personasReservadas = obtenerPersonasReservadas(value);
-      return personasReservadas >= turnosMaxBySlot;
-  };
-
-  // Función para obtener los espacios restantes
-  const obtenerEspaciosRestantes = (value) => {
-      const personasReservadas = obtenerPersonasReservadas(value);
-      return turnosMaxBySlot - personasReservadas;
-  }
-
   const handlerViewChange = (newView) => {
     setView(newView);
     if (newView === "month") {
@@ -175,16 +155,10 @@ export default function Calendario() {
     } else if (view === "day" && !estaTotalmenteLlenoPorPersonas(start)) { 
       setTurnoSeleccionado(start);
       const maxDisponibles = obtenerEspaciosRestantes(start); 
-      setFormularioMax(maxDisponibles);
+      setMaxPersonasDisponibles(maxDisponibles);
       setMostrarFormulario(true);
     }
   };
-
-  const cerrarFormulario = () => {
-    setMostrarFormulario(false);
-    setTurnoSeleccionado("");
-    //cambio de vista
-  };
 
   const handleNavigate = (date) => {
     /* if (view === "month") {
@@ -193,13 +167,20 @@ export default function Calendario() {
     setDiaSeleccionado(date);
   };
 
-  const estaOcupado = (value) => {
-    const hourFormated = dayjs(value).format("YYYY-MM-DD HH:mm");
-    if (turnos.length === 0) {
-      return false;
-    }
-    return eventCountByHour[hourFormated] >= turnosMaxBySlot;
+  const obtenerPersonasReservadas = (value) => {
+      const hourFormated = dayjs(value).format("YYYY-MM-DD HH:mm");
+      return eventCountByHour[hourFormated] || 0;
   };
+
+  const estaTotalmenteLlenoPorPersonas = (value) => {
+      const personasReservadas = obtenerPersonasReservadas(value);
+      return personasReservadas >= turnosMaxBySlot;
+  };
+
+  const obtenerEspaciosRestantes = (value) => {
+      const personasReservadas = obtenerPersonasReservadas(value);
+      return turnosMaxBySlot - personasReservadas;
+  }
 
   const estaSeleccionado = (value) => {
     return dayjs(value).isSame(dayjs(turnoSeleccionado), "minute");
@@ -215,19 +196,16 @@ export default function Calendario() {
     if (dayOfWeek === 1 || dayOfWeek === 2 || dayOfWeek === 3 || dayOfWeek === 4 || dayOfWeek === 5) {
       return true;
     }
-
     const dateKey = dayjsDate.format("YYYY-MM-DD");
     if (FERIADOS_EVENTUALES.includes(dateKey)) {
       return true;
     }
-
     return false;
   };
 
   const obtenerTurnosDisponiblesPorDia = (date) => {
     const dayKey = dayjs(date).format("YYYY-MM-DD");
     const eventosReservados = eventCountByDay[dayKey] || 0;
-
     return Math.max(0, turnosMaxByDay - eventosReservados);
   };
 
@@ -241,14 +219,11 @@ export default function Calendario() {
     const esNoLaborable = esDiaNoLaborable(value);
     const ocupacionDiaria = eventosReservados / turnosMaxByDay; // Ej: 1/3 = 0.3333
     const porcentajeOcupacionDiaria = ocupacionDiaria * 100; // Ej: 33.33%
-
     if (currentMonth !== cellMonth) {
       return <div className="rbc-day-bg">{children}</div>;
     }
-
     let displayText = "";
     let statusClass = "";
-    
     if (esDiaPasado(value)) {
       displayText = ""; 
       statusClass = "past-day";
@@ -294,10 +269,7 @@ export default function Calendario() {
     const personasRestantes = obtenerEspaciosRestantes(value);
     const estaLleno = estaTotalmenteLlenoPorPersonas(value);
     const porcentajeOcupacion = (personasReservadas / turnosMaxBySlot) * 100;
-
-
     const formattedStart = dayjs(value).format('HH:mm');
-    
     let contentText = '';
     if (estaSeleccionado(value)) {
       contentText = `${formattedStart} Seleccionado`;
@@ -342,6 +314,12 @@ export default function Calendario() {
       </>
     );
   };
+
+  const cerrarFormulario = () => {
+    setMostrarFormulario(false);
+    setTurnoSeleccionado("");
+    //cambiar de vista
+  };
   
   return (
     <>
@@ -352,38 +330,41 @@ export default function Calendario() {
           maxPersonasDisponibles={maxPersonasDisponibles}
         />
       )}
-      <div className={`Calendar__container view-${view}`}>
-        <Calendar
-          localizer={localizer}
-          events={turnos}
-          views={["month", "day"]}
-          view={view}
-          date={diaSeleccionado}
-          onView={handlerViewChange}
-          onSelectSlot={handleSelectSlot}
-          onNavigate={handleNavigate}
-          selectable
-          components={{
-            dateCellWrapper: CustomDateCellWrapper,
-            timeSlotWrapper: CustomTimeSlotWrapper,
-          }}
-          min={dayjs().hour(horaMin).minute(0).second(0).toDate()}
-          max={dayjs().hour(horaMax).minute(0).second(0).toDate()}
-          timeslots={3}
-          step={20}
-          showMultiDayTimes={false}
-          /* 
-          startAccessor="start"
-          endAccessor="end"
-          */
-          messages={{
-            next: "Siguiente",
-            previous: "Anterior",
-            today: "Hoy",
-            month: "Mes",
-            day: "Dia",
-          }}
-        />
+      <div className="InstructivoYCalendar__container">
+        <Instructivo />
+        <div className={`Calendar__container view-${view}`}>
+          <Calendar
+            localizer={localizer}
+            events={turnos}
+            views={["month", "day"]}
+            view={view}
+            date={diaSeleccionado}
+            onView={handlerViewChange}
+            onSelectSlot={handleSelectSlot}
+            onNavigate={handleNavigate}
+            selectable
+            components={{
+              dateCellWrapper: CustomDateCellWrapper,
+              timeSlotWrapper: CustomTimeSlotWrapper,
+            }}
+            min={dayjs().hour(horaMin).minute(0).second(0).toDate()}
+            max={dayjs().hour(horaMax).minute(0).second(0).toDate()}
+            timeslots={3}
+            step={20}
+            showMultiDayTimes={false}
+            /* 
+            startAccessor="start"
+            endAccessor="end"
+            */
+            messages={{
+              next: "Siguiente",
+              previous: "Anterior",
+              today: "Hoy",
+              month: "Mes",
+              day: "Dia",
+            }}
+          />
+        </div>
       </div>
     </>
   );

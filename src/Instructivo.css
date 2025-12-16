@@ -1,0 +1,14 @@
+.Instructivo__container {
+    background-color: rgb(200, 230, 255);
+    width: auto;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 30px;
+}
+.Instructivo__container p, .Instructivo__container li{
+    margin: 0;
+    font-size: 14px;
+    line-height: 18px;
+}
