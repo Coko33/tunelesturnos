@@ -11,7 +11,8 @@ import Formulario from "./Formulario";
 import Instructivo from "./Instructivo";
 import { useEsMovil } from "./useEsMovil";
 dayjs.locale("es");
-const turnosRef = collection(db, "turnos");
+const RESERVAS_PENDIENTES_REF = collection(db, "reservas_pendientes");
+const TURNOS_CONFIRMADOS_REF = collection(db, "turnos"); 
 const turnosMaxByDay = 54;
 const turnosMaxBySlot = 6;
 //const capacidadMaximaPersonasBySlot = 6;
@@ -51,40 +52,54 @@ export default function Calendario() {
   const fetchItems = async (date) => {
     setLoading(true);
     setError(null);
-    const startOfMonth = dayjs(date).startOf('month').format("YYYY-MM-DDTHH:mm:ss");
-    const endOfMonth = dayjs(date).endOf('month').format("YYYY-MM-DDTHH:mm:ss");
-    const turnosRef = query(collection(db, "turnos"), 
+    /* const startOfMonth = dayjs(date).startOf('month').format("YYYY-MM-DDTHH:mm:ss");
+    const endOfMonth = dayjs(date).endOf('month').format("YYYY-MM-DDTHH:mm:ss"); */
+    const startOfMonth = dayjs(date).startOf('month').toDate();
+    const endOfMonth = dayjs(date).endOf('month').toDate();
+
+    const turnosQuery = query(TURNOS_CONFIRMADOS_REF, 
       where("start", ">=", startOfMonth),
       where("start", "<=", endOfMonth));
+    
+    const pendientesQuery = query(RESERVAS_PENDIENTES_REF,
+      where("start", ">=", startOfMonth),
+      where("start", "<=", endOfMonth));
+
     try {
-      // Considerar filtrar por un rango de fechas (ej. mes actual) para evitar cargar todos los turnos
-      const querySnapshot = await getDocs(turnosRef);
-      const turnosList = querySnapshot.docs.map((doc) => ({
-        ...doc.data(), 
-        cantidadPersonas: Number(doc.data().cantidadPersonas || 1) 
-      }));
-
-      const turnosFormated = turnosList.map((t) => ({
-        start: dayjs(t.start).toDate(),
-        end: dayjs(t.end).toDate(),
-        title: t.title,
-      }));
-      // No limpiar setTurnos([]) antes de asignar los nuevos, para evitar un parpadeo
-      setTurnos(turnosFormated);
-
-      const countsByDay = turnosFormated.reduce((acc, t) => {
-        const dayKey = dayjs(t.start).format("YYYY-MM-DD");
-        acc[dayKey] = (acc[dayKey] || 0) + 1;
+      const [turnosSnapshot, pendientesSnapshot] = await Promise.all([
+        getDocs(turnosQuery),
+        getDocs(pendientesQuery)
+      ]);
+      const todosLosDocs = [...turnosSnapshot.docs, ...pendientesSnapshot.docs];
+      const turnosList = todosLosDocs.map((doc) => {
+        const data = doc.data();
+        return {
+          ...data,
+          cantidadPersonas: parseInt(data.cantidadPersonas) || 1,
+          // Si es un timestamp de Firebase, lo convertimos a Date
+          fechaParseada: dayjs(data.start.toDate ? data.start.toDate() : data.start)
+        };
+      });
+      const countsByDay = turnosList.reduce((acc, t) => {
+        const dayKey = t.fechaParseada.format("YYYY-MM-DD");
+        acc[dayKey] = (acc[dayKey] || 0) + t.cantidadPersonas;
+        return acc;
+      }, {});
+      const countsByHour = turnosList.reduce((acc, t) => {
+        const hourKey = t.fechaParseada.format("YYYY-MM-DD HH:mm");
+        acc[hourKey] = (acc[hourKey] || 0) + t.cantidadPersonas; 
         return acc;
       }, {});
       setEventCountByDay(countsByDay);
-
-      const countsByHour = turnosList.reduce((acc, t) => {
-      const HourKey = dayjs(t.start).format("YYYY-MM-DD HH:mm");
-        acc[HourKey] = (acc[HourKey] || 0) + t.cantidadPersonas; 
-        return acc;
-      }, {});
       setEventCountByHour(countsByHour);
+      console.log("countsByDay", countsByDay)
+      console.log("countsByHour", countsByHour)
+      const turnosFormateadosParaCalendario = turnosList.map(t => ({
+        ...t,
+        start: t.fechaParseada.toDate(),
+        end: t.fechaParseada.add(20, 'minute').toDate(),
+      }));
+      setTurnos(turnosFormateadosParaCalendario);
     } catch (e) {
       console.error("Error al obtener turnos:", e);
       setError("Error al cargar los turnos.");
@@ -98,33 +113,44 @@ export default function Calendario() {
     setError(null);
     const startOfDay = dayjs(selectedDay)
       .startOf("day")
-      .format("YYYY-MM-DDTHH:mm:ss");
+      .toDate();
     const endOfDay = dayjs(selectedDay)
       .endOf("day")
-      .format("YYYY-MM-DDTHH:mm:ss");
-    const q = query(
-      turnosRef,
+      .toDate();
+
+    const turnosQuery = query(
+      TURNOS_CONFIRMADOS_REF,
       where("start", ">=", startOfDay),
       where("start", "<=", endOfDay)
     );
+    const pendientesQuery = query(
+      RESERVAS_PENDIENTES_REF,
+      where("start", ">=", startOfDay),
+      where("start", "<=", endOfDay)
+    );
+
     try {
-      const querySnapshot = await getDocs(q);
-      const turnosList = querySnapshot.docs.map((doc) => ({
-        ...doc.data(),
-        cantidadPersonas: Number(doc.data().cantidadPersonas || 1)
-      }));
+      const [turnosSnapshot, pendientesSnapshot] = await Promise.all([
+        getDocs(turnosQuery),
+        getDocs(pendientesQuery)
+      ]);
+
+      const turnosConfirmados = turnosSnapshot.docs.map((doc) => ({ ...doc.data(), cantidadPersonas: Number(doc.data().cantidadPersonas || 1) }));
+      const turnosPendientes = pendientesSnapshot.docs.map((doc) => ({ ...doc.data(), cantidadPersonas: Number(doc.data().cantidadPersonas || 1) }));
+      const turnosList = [...turnosConfirmados, ...turnosPendientes];
+
       const turnosFormated = turnosList.map((t) => ({
         start: dayjs(t.start).toDate(),
         end: dayjs(t.end).toDate(),
         title: t.title,
       }));
       setTurnos(turnosFormated);
-      const countsByHour = turnosList.reduce((acc, t) => {
+      /* const countsByHour = turnosList.reduce((acc, t) => {
       const HourKey = dayjs(t.start).format("YYYY-MM-DD HH:mm");
         acc[HourKey] = (acc[HourKey] || 0) + t.cantidadPersonas;
         return acc;
       }, {});
-      setEventCountByHour(countsByHour);
+      setEventCountByHour(countsByHour); */
     } catch (e) {
       console.error("Error al obtener turnos para el día:", e);
       setError("Error al cargar los turnos para este día.");

@@ -43,6 +43,7 @@
   height: 30px;
   background-color: crimson;
   border-radius: 5px;
+  z-index: 2000;
 }
 .Formulario__button svg {
   position: relative;
