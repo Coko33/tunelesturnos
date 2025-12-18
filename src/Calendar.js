@@ -10,12 +10,13 @@ import "./Calendar.css";
 import Formulario from "./Formulario";
 import Instructivo from "./Instructivo";
 import { useEsMovil } from "./useEsMovil";
+import Spinner from "./Spinner";
+import CustomToolbar from "./CustomToolbar";
 dayjs.locale("es");
 const RESERVAS_PENDIENTES_REF = collection(db, "reservas_pendientes");
 const TURNOS_CONFIRMADOS_REF = collection(db, "turnos"); 
 const turnosMaxByDay = 54;
 const turnosMaxBySlot = 6;
-//const capacidadMaximaPersonasBySlot = 6;
 const horaMin = 15;
 const horaMax = 18;
 
@@ -30,14 +31,16 @@ export default function Calendario() {
   const localizer = dayjsLocalizer(dayjs);
   const [turnos, setTurnos] = useState([]);
   const [view, setView] = useState("month");
-  const [diaSeleccionado, setDiaSeleccionado] = useState();
+  const [error, setError] = useState(null);
+  const [diaSeleccionado, setDiaSeleccionado] = useState(new Date());
   const [eventCountByDay, setEventCountByDay] = useState({});
   const [eventCountByHour, setEventCountByHour] = useState({});
   const [turnoSeleccionado, setTurnoSeleccionado] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [maxPersonasDisponibles, setMaxPersonasDisponibles] = useState(0);
+  const lastViewChangeRef = useRef(0);
+
   const esMovil = useEsMovil();
 
   useEffect(() => {
@@ -52,8 +55,6 @@ export default function Calendario() {
   const fetchItems = async (date) => {
     setLoading(true);
     setError(null);
-    /* const startOfMonth = dayjs(date).startOf('month').format("YYYY-MM-DDTHH:mm:ss");
-    const endOfMonth = dayjs(date).endOf('month').format("YYYY-MM-DDTHH:mm:ss"); */
     const startOfMonth = dayjs(date).startOf('month').toDate();
     const endOfMonth = dayjs(date).endOf('month').toDate();
 
@@ -76,7 +77,6 @@ export default function Calendario() {
         return {
           ...data,
           cantidadPersonas: parseInt(data.cantidadPersonas) || 1,
-          // Si es un timestamp de Firebase, lo convertimos a Date
           fechaParseada: dayjs(data.start.toDate ? data.start.toDate() : data.start)
         };
       });
@@ -117,7 +117,6 @@ export default function Calendario() {
     const endOfDay = dayjs(selectedDay)
       .endOf("day")
       .toDate();
-
     const turnosQuery = query(
       TURNOS_CONFIRMADOS_REF,
       where("start", ">=", startOfDay),
@@ -128,29 +127,20 @@ export default function Calendario() {
       where("start", ">=", startOfDay),
       where("start", "<=", endOfDay)
     );
-
     try {
       const [turnosSnapshot, pendientesSnapshot] = await Promise.all([
         getDocs(turnosQuery),
         getDocs(pendientesQuery)
       ]);
-
       const turnosConfirmados = turnosSnapshot.docs.map((doc) => ({ ...doc.data(), cantidadPersonas: Number(doc.data().cantidadPersonas || 1) }));
       const turnosPendientes = pendientesSnapshot.docs.map((doc) => ({ ...doc.data(), cantidadPersonas: Number(doc.data().cantidadPersonas || 1) }));
       const turnosList = [...turnosConfirmados, ...turnosPendientes];
-
       const turnosFormated = turnosList.map((t) => ({
         start: dayjs(t.start).toDate(),
         end: dayjs(t.end).toDate(),
         title: t.title,
       }));
       setTurnos(turnosFormated);
-      /* const countsByHour = turnosList.reduce((acc, t) => {
-      const HourKey = dayjs(t.start).format("YYYY-MM-DD HH:mm");
-        acc[HourKey] = (acc[HourKey] || 0) + t.cantidadPersonas;
-        return acc;
-      }, {});
-      setEventCountByHour(countsByHour); */
     } catch (e) {
       console.error("Error al obtener turnos para el día:", e);
       setError("Error al cargar los turnos para este día.");
@@ -160,7 +150,15 @@ export default function Calendario() {
   };
 
   const handlerViewChange = (newView) => {
+    lastViewChangeRef.current = Date.now();
     setView(newView);
+    if (newView === "day") {
+      let fechaBusqueda = dayjs(diaSeleccionado);
+      while (esDiaNoLaborable(fechaBusqueda.toDate()) && fechaBusqueda.isBefore(dayjs(maxDate))) {
+        fechaBusqueda = fechaBusqueda.add(1, 'day');
+      }
+      setDiaSeleccionado(fechaBusqueda.toDate());
+    }
     if (newView === "month") {
       setTurnoSeleccionado("");
       setTurnos([]);
@@ -168,29 +166,27 @@ export default function Calendario() {
   };
 
   const handleSelectSlot = ({ start, end }) => {
-    if (esDiaNoLaborable(start) || esDiaPasado(start)) {
-      return; 
-    }
-    const turnosDisponibles = obtenerTurnosDisponiblesPorDia(start);
-    if (view === "month" && turnosDisponibles === 0) {
-        return;
+    if (Date.now() - lastViewChangeRef.current < 500) {
+      return;
     }
-    if (view === "month" && !esDiaPasado(start)) {
+    if (mostrarFormulario && dayjs(start).isSame(dayjs(turnoSeleccionado))) return;
+    if (esDiaNoLaborable(start) || (esDiaPasado(start) && !dayjs(start).isSame(dayjs(), 'day'))) {
+      return; 
+    }
+    const turnosDisponibles = obtenerTurnosDisponiblesPorDia(start);
+    if (view === "month") {
+      if (turnosDisponibles === 0) {
+        return;
+      }
       setDiaSeleccionado(start);
       setView("day");
+      lastViewChangeRef.current = Date.now();
     } else if (view === "day" && !estaTotalmenteLlenoPorPersonas(start)) { 
       setTurnoSeleccionado(start);
       const maxDisponibles = obtenerEspaciosRestantes(start); 
       setMaxPersonasDisponibles(maxDisponibles);
       setMostrarFormulario(true);
     }
-  };
-
-  const handleNavigate = (date) => {
-    /* if (view === "month") {
-      setDiaSeleccionado(date);
-    } */
-    setDiaSeleccionado(date);
   };
 
   const obtenerPersonasReservadas = (value) => {
@@ -217,17 +213,17 @@ export default function Calendario() {
   };
 
   const esDiaNoLaborable = (date) => {
-    const dayjsDate = dayjs(date);
-    const dayOfWeek = dayjsDate.day(); // 0 = Domingo, 1 = Lunes, 2 = Martes
-    if (dayOfWeek === 1 || dayOfWeek === 2 || dayOfWeek === 3 || dayOfWeek === 4 || dayOfWeek === 5) {
-      return true;
-    }
-    const dateKey = dayjsDate.format("YYYY-MM-DD");
-    if (FERIADOS_EVENTUALES.includes(dateKey)) {
-      return true;
-    }
-    return false;
-  };
+  const dayjsDate = dayjs(date);
+  const dayOfWeek = dayjsDate.day(); 
+    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+      return true;
+    }
+    const dateKey = dayjsDate.format("YYYY-MM-DD");
+    if (FERIADOS_EVENTUALES.includes(dateKey)) {
+      return true;
+    }
+  return false;
+};
 
   const obtenerTurnosDisponiblesPorDia = (date) => {
     const dayKey = dayjs(date).format("YYYY-MM-DD");
@@ -260,11 +256,17 @@ export default function Calendario() {
       displayText = "COMPLETO";
       statusClass = "full";
     } else {
-      displayText = `Turnos<br />disponibles: ${turnosDisponibles}`;
+      displayText = `${turnosDisponibles} turnos`;
       statusClass = "available";
     }
+
+    const handleCellClick = (e) => {
+      e.stopPropagation(); 
+      handleSelectSlot({ start: value, end: value });
+    };
+
     return (
-      <div className={`rbc-day-bg custom-date-cell-wrapper ${statusClass}`}>
+      <div className={`rbc-day-bg custom-date-cell-wrapper ${statusClass}`} onClick={handleCellClick}>
         {children}
         {view === "month" && (
           <div className="event-count-indicator">
@@ -296,6 +298,12 @@ export default function Calendario() {
     const estaLleno = estaTotalmenteLlenoPorPersonas(value);
     const porcentajeOcupacion = (personasReservadas / turnosMaxBySlot) * 100;
     const formattedStart = dayjs(value).format('HH:mm');
+
+    const handleTouchSelect = (e) => {
+      e.stopPropagation();
+      handleSelectSlot({ start: value, end: dayjs(value).add(20, 'minutes').toDate() });
+    };
+
     let contentText = '';
     if (estaSeleccionado(value)) {
       contentText = `${formattedStart} Seleccionado`;
@@ -320,19 +328,19 @@ export default function Calendario() {
       <>
         {children}
         {isDayViewSlot && !isGutterSlot && (
-          <div className={`time-slot-content-wrapper ${className}`}>
+          <div className={`time-slot-content-wrapper ${className}`} onClick={handleTouchSelect}>
             {personasReservadas > 0 && !estaLleno && (
-                <div 
-                    className="occupancy-bar"
-                    style={{ 
-                        width: `${porcentajeOcupacion}%`, 
-                        backgroundColor: 'crimson',
-                        opacity: 1
-                    }}
-                >
-                </div>
+              <div 
+                className="occupancy-bar"
+                style={{ 
+                    width: `${porcentajeOcupacion}%`, 
+                    backgroundColor: 'crimson',
+                    opacity: 1
+                }}
+              >
+              </div>
             )}
-            <span className="slot-text-indicator">
+            <span>
                 {contentText}
             </span>
           </div>
@@ -346,7 +354,12 @@ export default function Calendario() {
     setTurnoSeleccionado("");
     //cambiar de vista
   };
-  
+
+  const minDate = dayjs().startOf('day').toDate();
+  const maxDate = dayjs().add(2, 'month').endOf('month').toDate();
+  const isPreviousDisabled = diaSeleccionado ? dayjs(diaSeleccionado).isSameOrBefore(dayjs(minDate), 'month') : false;
+  const isNextDisabled = diaSeleccionado ? dayjs(diaSeleccionado).isSameOrAfter(dayjs(maxDate), 'month') : false;
+
   return (
     <>
       {mostrarFormulario && (
@@ -359,37 +372,49 @@ export default function Calendario() {
       <div className="InstructivoYCalendar__container">
         <Instructivo />
         <div className={`Calendar__container view-${view}`}>
-          <Calendar
-            localizer={localizer}
-            events={turnos}
-            views={["month", "day"]}
-            view={view}
-            date={diaSeleccionado}
-            onView={handlerViewChange}
-            onSelectSlot={handleSelectSlot}
-            onNavigate={handleNavigate}
-            selectable
-            components={{
-              dateCellWrapper: CustomDateCellWrapper,
-              timeSlotWrapper: CustomTimeSlotWrapper,
-            }}
-            min={dayjs().hour(horaMin).minute(0).second(0).toDate()}
-            max={dayjs().hour(horaMax).minute(0).second(0).toDate()}
-            timeslots={3}
-            step={20}
-            showMultiDayTimes={false}
-            /* 
-            startAccessor="start"
-            endAccessor="end"
-            */
-            messages={{
-              next: "Siguiente",
-              previous: "Anterior",
-              today: "Hoy",
-              month: "Mes",
-              day: "Dia",
-            }}
-          />
+          {loading && <div className="Calendar__spinner-overlay">
+            <Spinner /> 
+          </div>}
+          {!loading && 
+            <Calendar
+              localizer={localizer}
+              events={turnos}
+              views={["month", "day"]}
+              view={view}
+              date={diaSeleccionado}
+              onSelectSlot={handleSelectSlot}
+              onView={handlerViewChange}
+              onNavigate={(newDate) => setDiaSeleccionado(newDate)}
+              selectable
+              longPressThreshold={1}
+              drilldownView={null}
+              components={{
+                dateCellWrapper: CustomDateCellWrapper,
+                timeSlotWrapper: CustomTimeSlotWrapper,
+                toolbar: (props) => (
+                  <CustomToolbar 
+                    {...props} 
+                    esDiaNoLaborable={esDiaNoLaborable}
+                    minDate={minDate}
+                    maxDate={maxDate}
+                    setDiaSeleccionado={setDiaSeleccionado}
+                  />
+                ),
+              }}
+              min={view === 'day' ? dayjs().hour(horaMin).minute(0).toDate() : minDate}
+              max={view === 'day' ? dayjs().hour(horaMax).minute(0).toDate() : maxDate}
+              timeslots={3}
+              step={20}
+              showMultiDayTimes={false}
+              messages={{ 
+                next: "Siguiente",
+                previous: "Anterior",
+                today: "Hoy",
+                month: "Mes",
+                day: "Dia",
+              }}
+            />
+          }
         </div>
       </div>
     </>

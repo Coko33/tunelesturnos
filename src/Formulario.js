@@ -7,6 +7,7 @@ import CerrarIcon from "./CerrarIcon";
 
 const RESERVAS_PENDIENTES_REF = collection(db, "reservas_pendientes");
 const TURNOS_CONFIRMADOS_REF = collection(db, "turnos"); 
+//const TURNOS_PUBLICOS_REF = collection(db, "turnos_publicos");
 
 export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisponibles}) {
   const formVacio = {
@@ -32,12 +33,9 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
   const [deshabilitarBoton, setDeshabilitarBoton] = useState(false);
 
   useEffect(() => {
-    console.log("personas displibles " + maxPersonasDisponibles)
     if (turnoSeleccionado) {
       const startDateObject = dayjs(turnoSeleccionado).toDate(); 
       const endDateObject = dayjs(turnoSeleccionado).add(20, "minute").toDate();
-      const startDisplayString = dayjs(turnoSeleccionado).format("YYYY-MM-DDTHH:mm:ss");
-      const endDisplayString = dayjs(turnoSeleccionado).add(20, "minute").format("YYYY-MM-DDTHH:mm:ss");
       setForm((prevForm) => ({
         ...prevForm,
         turno: turnoSeleccionado,
@@ -53,16 +51,15 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
 
   const isValidForm = (form) => {
     const newErrors = {};
-    const nameRegex = /^[a-zA-ZÁÉÍÓÚáéíóúñÑ\s]{3,}$/;
+    const nameRegex = /^[a-zA-ZÁÉÍÓÚáéíóúñÑ]{2,}\s[a-zA-ZÁÉÍÓÚáéíóúñÑ\s]{2,}$/;
     if (!nameRegex.test(form.nombreYApellido)) {
-      newErrors.nombreYApellido = "El nombre y apellido debe tener al menos 3 letras y solo caracteres alfabéticos.";
+      newErrors.nombreYApellido = "Ingresa al menos un nombre y un apellido (mínimo 2 letras cada uno).";
     }
-    const docRegex = /^[a-zA-Z0-9-]{6,20}$/;
+    const docRegex = /^(?=.*[0-9])[a-zA-Z0-9-]{6,20}$/;
     if (!docRegex.test(form.numeroDocumento)) {
       newErrors.numeroDocumento =
-        "El número de documento no es válido. Debe tener entre 6 y 20 caracteres (letras, números y guiones).";
+        "El documento debe tener entre 6 y 20 caracteres y contener al menos un número.";
     }
-    // Regex para nacionalidad que permite letras y espacios
     const nationalityRegex = /^[a-zA-ZÁÉÍÓÚáéíóúñÑ\s]{3,}$/;
     if (!nationalityRegex.test(form.nacionalidad)) {
       newErrors.nacionalidad =
@@ -91,13 +88,12 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
     return Object.keys(newErrors).length === 0;
   };
 
-  const checkFutureReservation = async (email, currentStartTime) => {
-      const currentStartDate = dayjs(currentStartTime).toDate();
-      // Buscar en reservas confirmadas
+  const checkFutureReservation = async (email) => {
+      const hoy = dayjs().toDate();
       let qConfirmed = query(
           TURNOS_CONFIRMADOS_REF,
           where("email", "==", email),
-          where("start", ">", currentStartDate),
+          where("start", ">", hoy),
           orderBy("start", "asc")
       );
       const confirmedSnapshot = await getDocs(qConfirmed);
@@ -105,11 +101,10 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
           const timestamp = confirmedSnapshot.docs[0].data().start;
           return dayjs(timestamp.toDate()).format("YYYY-MM-DDTHH:mm:ss");
       }
-      // Buscar en reservas pendientes
       let qPending = query(
           RESERVAS_PENDIENTES_REF,
           where("email", "==", email),
-          where("start", ">", currentStartDate),
+          where("start", ">", hoy),
           orderBy("start", "asc")
       );
       const pendingSnapshot = await getDocs(qPending);
@@ -121,7 +116,6 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
   };
 
   const handleSubmit = async (e) => {
-    console.log("toca boton")
     e.preventDefault();
     setSubmissionMessage("");
     if (isValidForm(form)) {
@@ -129,6 +123,7 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
       setLoading(true);
       try {
         const existingFutureStart = await checkFutureReservation(form.email, form.start);
+        console.log("existingFutureStart", existingFutureStart)
         if (existingFutureStart) {
             setLoading(false);
             const futureDate = dayjs(existingFutureStart).format("dddd D [de] MMMM [a las] HH:mm");
@@ -160,7 +155,6 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
       ...prevForm,
       [name]: type === "checkbox" ? checked : value,
     }));
-    // Si el usuario cambia el email, habilitamos el botón de nuevo.
     if (name === 'email' && deshabilitarBoton) {
       setDeshabilitarBoton(false);
     }

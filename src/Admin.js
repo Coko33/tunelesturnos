@@ -40,11 +40,11 @@ export default function Admin() {
         const anio = fecha.getFullYear();
         const diaSemanaMayus = diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1);
         return (
-            <>
+            <strong>
                 {diaSemanaMayus} {diaNumero}
                 <br />
                 {mes} {anio}
-            </>
+            </strong>
         );
     }
     return 'Fecha no definida';
@@ -71,7 +71,9 @@ export default function Admin() {
               id: doc.id, 
               ...data,
               turno: turnoFormateado,
-              fecha: fechaDisplay
+              fecha: fechaDisplay,
+              start: formatTimestampToDateTime(data.start),
+              end: formatTimestampToDateTime(data.end)
           };
         if (!grupos[fechaAgrupacion]) {
             grupos[fechaAgrupacion] = [];
@@ -85,33 +87,6 @@ export default function Admin() {
     } finally {
       setLoading(false);
     }
-
-      /* 
-      const turnosList = querySnapshot.docs.map((doc) => {
-        const data = doc.data();
-        const fechaTurno = data.turno && typeof data.turno.toDate === 'function' 
-              ? data.turno.toDate().toLocaleString('es-ES', { 
-                    year: 'numeric', 
-                    month: '2-digit', 
-                    day: '2-digit', 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                }) 
-              : 'Fecha no definida'; 
-        return { 
-              id: doc.id, 
-              ...data,
-              turno: fechaTurno 
-          };
-      }); 
-      setTurnos(turnosList);    
-    } catch (e) {
-      console.error("Error al obtener turnos: ", e);
-      setError("Error al cargar los turnos.");
-    } finally {
-      setLoading(false);
-    }
-    */
   };
   useEffect(() => {
     fetchTurnos(); 
@@ -134,30 +109,26 @@ export default function Admin() {
   if (loading) return <p>Cargando turnos...</p>;
   if (error) return <p style={{ color: 'red' }}>{error}</p>;
 
-
-
   return (
     <>
       <div className="admin__headerContainer">
         <h1>Panel de Administración</h1>
         <button onClick={logout}>Salir</button>
       </div>
-      <div className="admin__tableContainer"><table><thead><tr><th>Fecha</th><th>Nombre</th><th>Apellido</th><th>Edad</th><th>Email</th><th>Hora Turno</th><th>Start (App)</th><th>End (App)</th><th>Acciones</th></tr></thead><tbody>
+      <div className="admin__tableContainer"><table><thead><tr><th>Fecha</th><th>Nombre</th><th>Documento</th><th>Reservas</th><th>Email</th><th>Hora Turno</th><th>Acciones</th></tr></thead><tbody>
               {Object.keys(turnosAgrupados).map((fecha) => (
                   turnosAgrupados[fecha].map((turno, index) => (
                       <tr key={turno.id}>
                           {index === 0 && (
                               <td className="fecha-rowspan" rowSpan={turnosAgrupados[fecha].length}>
-                                  <strong>{turno.fecha}</strong>
+                                  {turno.fecha}
                               </td>
                           )}
-                          <td>{turno.nombre}</td>
-                          <td>{turno.apellido}</td>
-                          <td>{turno.edad}</td>
+                          <td>{turno.nombreYApellido}</td>
+                          <td>{turno.numeroDocumento}</td>
+                          <td>{turno.cantidadPersonas}</td>
                           <td>{turno.email}</td>
                           <td>{turno.turno.split(', ')[1]}</td>
-                          <td>{turno.start}</td>
-                          <td>{turno.end}</td>
                           <td>
                             <button onClick={() => deleteTurno(turno.id)}>Eliminar</button>
                           </td>

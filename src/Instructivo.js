@@ -1,5 +1,8 @@
 import "./Instructivo.css"
+//import Flecha from "./Flecha"
+import { useEsMovil } from "./useEsMovil"
 export default function Instructivo() {
+    const esMovil = useEsMovil();
     return(
         <>
         <div className="Instructivo__container">
@@ -25,6 +28,7 @@ export default function Instructivo() {
                 <p>✅ El día de la visita: <b>traé tu DNI físico</b> (los turnos son <b>intransferibles</b>) 🪪</p>
                 <p>✅ Llegá <b>10 minutos antes</b> de tu horario ⏱️</p>
                 <p>❌ <b>No se permite ingresar con alimentos ni bebidas</b> 🚫🍔🥤</p>
+                {/* {esMovil && <Flecha />} */}
             </div>
         </div>
         </>

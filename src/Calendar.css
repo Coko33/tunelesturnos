@@ -26,7 +26,6 @@
   height: 100vh;
   display: flex;
   flex-direction: row;
- 
 }
 .Calendar__container {
   position: relative;
@@ -37,6 +36,11 @@
   top: 0;
   display: grid;
   place-items: center;
+}
+
+.Calendar__spinner-overlay {
+  position: absolute;
+  z-index: 1000;
 }
 
 .rbc-calendar {
@@ -214,6 +218,7 @@
     line-height: 1.2;
     text-align: center;
     color: #ffffff;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
 }
 
 /* CLAVE: Hacemos que la celda sea el contenedor de posicionamiento */
@@ -227,7 +232,7 @@
     bottom: 0;
     left: 0;
     width: 100%;
-    height: auto;
+    height: 100%;
     min-height: 25px; 
     padding: 2px 5px;
     box-sizing: border-box;
@@ -257,4 +262,67 @@
 
 .rbc-day-bg.custom-date-cell-wrapper.available {
   background-color: transparent;
+}
+.time-slot-content-wrapper span {
+    position: relative;
+    z-index: 2;
+    color: #ffffff;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+    pointer-events: none;
+}
+
+.time-slot-content-wrapper {
+    touch-action: auto; 
+    pointer-events: all;
+    -webkit-tap-highlight-color: transparent; 
+}
+.rbc-calendar {
+    user-select: none;
+    -webkit-user-select: none;
+}
+.custom-date-cell-wrapper {
+    position: relative;
+    pointer-events: all; 
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+.event-count-indicator, 
+.daily-text-indicator, 
+.daily-occupancy-bar {
+    pointer-events: none; 
+}
+@media (max-width: 600px) {
+  .InstructivoYCalendar__container {
+    height: auto;
+    flex-direction: column;
+  }
+  .Calendar__container {
+    width: 100%;
+    top: 40px;
+    left: 0;
+    margin-bottom: 300px;
+  }
+  .rbc-toolbar-label {
+    margin: 10px;
+  }
+  .rbc-calendar {
+    width: 94%;
+  }
+  .rbc-header span {
+    font-size: 10px;
+  }
+  .rbc-date-cell {
+    display: flex;
+    justify-content: right;
+  }
+  .rbc-date-cell span {
+    margin-top: 3px;
+    font-size: 12px;
+  }
+  .daily-text-indicator {
+    font-size: 11px;
+    line-height: 10px;
+    top: 2px;
+  }
 }

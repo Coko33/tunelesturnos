@@ -1,4 +1,4 @@
-.Formulario__canvas {
+/* .Formulario__canvas {
   position: absolute;
   display: flex;
   justify-content: center;
@@ -7,12 +7,28 @@
   height: 100vh;
   z-index: 1000;
   background-color: rgba(0, 0, 0, 0.295);
+} */
+ .Formulario__canvas {
+  position: fixed; /* Cambiado de absolute a fixed */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh; /* Fallback */
+  height: 100dvh; /* Nueva unidad que ignora la barra de navegación en móviles */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999; /* Asegúrate de que sea el más alto de la app */
+  background-color: rgba(0, 0, 0, 0.6); /* Un poco más oscuro para mejor contraste */
 }
 .Formulario__container form {
   position: relative;
-  top: 0;
+  top: 20px;
   display: flex;
   flex-direction: column;
+
 }
 
 .Formulario__container input {
@@ -37,7 +53,7 @@
 
 .Formulario__button {
   position: absolute;
-  top: 10px;
+  top: 20px;
   right: 20px;
   width: 30px;
   height: 30px;
@@ -67,7 +83,7 @@
   border: none;
   color: white;
   width: 90%;
-  margin-top: 30px;
+  margin: 30px 0;
   left: 5%;
 }
 
@@ -114,4 +130,22 @@ button:hover {
 }
 .Formulario__checkboxContainer p {
   margin-top: 10px;
+}
+@media (max-width: 600px) {
+.Formulario__canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100dvh;
+    padding: 0px; /* Espacio para que el formulario no toque los bordes */
+    overflow-y: auto; /* Permite scroll si el formulario es más alto que la pantalla */
+    align-items: flex-start; /* Para que al hacer scroll empiece desde arriba */
+  }
+
+  .Formulario__container {
+    margin-top: 20px; /* Separación superior en móviles */
+    margin-bottom: 20px;
+    min-height: auto; /* Deja que el contenido defina el alto si es necesario */
+  }
 }
