@@ -14,7 +14,8 @@ import Spinner from "./Spinner";
 import CustomToolbar from "./CustomToolbar";
 dayjs.locale("es");
 const RESERVAS_PENDIENTES_REF = collection(db, "reservas_pendientes");
-const TURNOS_CONFIRMADOS_REF = collection(db, "turnos"); 
+const TURNOS_CONFIRMADOS_REF = collection(db, "turnos");
+const TURNOS_PUBLICOS_REF = collection(db, "turnos_publicos");
 const turnosMaxByDay = 54;
 const turnosMaxBySlot = 6;
 const horaMin = 15;
@@ -55,31 +56,24 @@ export default function Calendario() {
   const fetchItems = async (date) => {
     setLoading(true);
     setError(null);
-    const startOfMonth = dayjs(date).startOf('month').toDate();
+    const startOfToday = dayjs().startOf('day').toDate();
     const endOfMonth = dayjs(date).endOf('month').toDate();
+    console.log("Desde:" + startOfToday, "hasta:" + endOfMonth);
 
-    const turnosQuery = query(TURNOS_CONFIRMADOS_REF, 
-      where("start", ">=", startOfMonth),
+    const q = query(TURNOS_PUBLICOS_REF, 
+      where("start", ">=", startOfToday),
       where("start", "<=", endOfMonth));
-    
-    const pendientesQuery = query(RESERVAS_PENDIENTES_REF,
-      where("start", ">=", startOfMonth),
-      where("start", "<=", endOfMonth));
-
     try {
-      const [turnosSnapshot, pendientesSnapshot] = await Promise.all([
-        getDocs(turnosQuery),
-        getDocs(pendientesQuery)
-      ]);
-      const todosLosDocs = [...turnosSnapshot.docs, ...pendientesSnapshot.docs];
-      const turnosList = todosLosDocs.map((doc) => {
-        const data = doc.data();
-        return {
-          ...data,
-          cantidadPersonas: parseInt(data.cantidadPersonas) || 1,
-          fechaParseada: dayjs(data.start.toDate ? data.start.toDate() : data.start)
-        };
-      });
+      const snapshot = await getDocs(q);
+      const turnosList = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        ...data,
+        cantidadPersonas: parseInt(data.cantidadPersonas) || 1,
+        fechaParseada: dayjs(data.start.toDate())
+      };
+    });
+
       const countsByDay = turnosList.reduce((acc, t) => {
         const dayKey = t.fechaParseada.format("YYYY-MM-DD");
         acc[dayKey] = (acc[dayKey] || 0) + t.cantidadPersonas;
@@ -92,8 +86,6 @@ export default function Calendario() {
       }, {});
       setEventCountByDay(countsByDay);
       setEventCountByHour(countsByHour);
-      console.log("countsByDay", countsByDay)
-      console.log("countsByHour", countsByHour)
       const turnosFormateadosParaCalendario = turnosList.map(t => ({
         ...t,
         start: t.fechaParseada.toDate(),
@@ -349,10 +341,18 @@ export default function Calendario() {
     );
   };
 
-  const cerrarFormulario = () => {
+  const cerrarFormulario = (debeRecargar) => {
     setMostrarFormulario(false);
     setTurnoSeleccionado("");
-    //cambiar de vista
+    setView("day");
+  if (debeRecargar) {
+    console.log("Refrescando calendario...");
+    // Llamamos a las funciones que traen los datos actualizados
+    fetchItems(diaSeleccionado);
+    if (view === "day") {
+      fetchItemsForDay(diaSeleccionado);
+    }
+  }
   };
 
   const minDate = dayjs().startOf('day').toDate();

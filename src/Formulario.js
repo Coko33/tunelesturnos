@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { addDoc, collection, getDocs, query, where, orderBy } from "firebase/firestore";
+import { addDoc, collection, getDoc, doc, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import "./Formulario.css";
 import dayjs from "dayjs";
@@ -7,7 +7,7 @@ import CerrarIcon from "./CerrarIcon";
 
 const RESERVAS_PENDIENTES_REF = collection(db, "reservas_pendientes");
 const TURNOS_CONFIRMADOS_REF = collection(db, "turnos"); 
-//const TURNOS_PUBLICOS_REF = collection(db, "turnos_publicos");
+const TURNOS_PUBLICOS_REF = collection(db, "turnos_publicos");
 
 export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisponibles}) {
   const formVacio = {
@@ -31,6 +31,7 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
   const [loading, setLoading] = useState(false);
   const [submissionMessage, setSubmissionMessage] = useState("");
   const [deshabilitarBoton, setDeshabilitarBoton] = useState(false);
+  const [esExitoso, setEsExitoso] = useState(false);
 
   useEffect(() => {
     if (turnoSeleccionado) {
@@ -89,7 +90,7 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
   };
 
   const checkFutureReservation = async (email) => {
-      const hoy = dayjs().toDate();
+      /* const hoy = dayjs().toDate();
       let qConfirmed = query(
           TURNOS_CONFIRMADOS_REF,
           where("email", "==", email),
@@ -112,18 +113,27 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
           const timestamp = pendingSnapshot.docs[0].data().start;
           return dayjs(timestamp.toDate()).format("YYYY-MM-DDTHH:mm:ss"); 
       }
-      return null;
+      return null; */
+    const emailDocRef = doc(db, "mapeo_emails", email.toLowerCase());
+    const docSnap = await getDoc(emailDocRef);
+
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      const fechaProxima = data.start.toDate();
+      if (dayjs(fechaProxima).isAfter(dayjs())) {
+         return fechaProxima;
+      }
+    }
+    return null;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmissionMessage("");
     if (isValidForm(form)) {
-      console.log(form)
       setLoading(true);
       try {
-        const existingFutureStart = await checkFutureReservation(form.email, form.start);
-        console.log("existingFutureStart", existingFutureStart)
+        const existingFutureStart = await checkFutureReservation(form.email);
         if (existingFutureStart) {
             setLoading(false);
             const futureDate = dayjs(existingFutureStart).format("dddd D [de] MMMM [a las] HH:mm");
@@ -134,10 +144,27 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
             emailInputRef.current?.focus();
             return;
         }
-        await addDoc(RESERVAS_PENDIENTES_REF, form);
+        const datosPublicos = {
+          start: form.start,
+          end: form.end,
+          cantidadPersonas: Number(form.cantidadPersonas),
+          status: "pending" 
+        };
+        const reservaRef = await addDoc(RESERVAS_PENDIENTES_REF, form);
+        await addDoc(TURNOS_PUBLICOS_REF, {
+          ...datosPublicos,
+          reservaId: reservaRef.id 
+        });
+        const emailRef = doc(db, "mapeo_emails", form.email.toLowerCase());
+        await setDoc(emailRef, {
+          reservaId: reservaRef.id,
+          status: "pending",
+          start: form.start
+        });
         setForm(formVacio);
         setErrors({}); 
         setSubmissionMessage("¡Casi listo! Revisa tu email para confirmar la reserva.");
+        setEsExitoso(true);
       } catch (error) {
         console.error("Error al reservar turno:", error);
         setSubmissionMessage("Error al reservar el turno. Inténtalo de nuevo.");
@@ -171,10 +198,16 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
     ? dayjs(turnoSeleccionado).format("dddd D [de] MMMM [a las] HH:mm")
     : "";
 
+  const manejarCierreManual = () => {
+  // Si esExitoso es true, enviamos true al Calendario para que refresque
+  // Si esExitoso es false, enviamos false para que no gaste lecturas de Firebase innecesarias
+  onClose(esExitoso);
+};
+
   return (
     <div className="Formulario__canvas">
       <div className="Formulario__container">
-        <div className="Formulario__button" onClick={onClose}>
+        <div className="Formulario__button" onClick={manejarCierreManual}>
             <CerrarIcon />
         </div>
         {!submissionMessage.includes("¡Casi listo!") && (

@@ -1,5 +1,6 @@
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
 const {onRequest} = require("firebase-functions/v2/https");
+const {onSchedule} = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
 const {getFirestore} = require("firebase-admin/firestore");
@@ -72,7 +73,7 @@ exports.enviarConfirmacionDeTurno = onDocumentCreated({
     to: reservaData.email,
     subject: "Confirma tu turno para para visitar los túneles",
     html: `
-          <h1>¡Hola ${reservaData.nombre}!</h1>
+          <h1>¡Hola ${reservaData.nombreYApellido}!</h1>
           <p>Gracias por reservar un turno. Por favor, haz clic en el 
           siguiente enlace para confirmar tu reserva:</p>
           <div style="border: 1px solid #ccc; padding: 15px; 
@@ -109,7 +110,6 @@ exports.confirmarTurno = onRequest({
         .where("tokenExpires", ">", Date.now());
     const snapshot = await query.get();
     if (snapshot.empty) {
-      console.log("Token no válido o expirado.");
       res.status(400).send(
           "El enlace de confirmación no es válido o ha expirado. " +
         "Por favor, intenta reservar de nuevo.",
@@ -118,19 +118,27 @@ exports.confirmarTurno = onRequest({
     }
     const reservaPendienteDoc = snapshot.docs[0];
     const reservaData = reservaPendienteDoc.data();
-    // Usar una transacción para garantizar la atomicidad
+    const reservaId = reservaPendienteDoc.id;
     await db.runTransaction(async (transaction) => {
-      // Crear el turno en la colección 'turnos'
-      // eslint-disable-next-line no-unused-vars
-      const {confirmationToken, tokenExpires, ...turnoFinal} = reservaData;
-      const turnosRef = db.collection("turnos");
-      transaction.set(turnosRef.doc(), turnoFinal);
-      // Eliminar la reserva pendiente para que no se pueda usar de nuevo
+      const turnoFinal = {...reservaData};
+      delete turnoFinal.confirmationToken;
+      delete turnoFinal.tokenExpires;
+      const turnosRef = db.collection("turnos").doc();
+      const publicosRef = db.collection("turnos_publicos");
+      const publicoSnapshot = await transaction.get(
+          publicosRef.where("reservaId", "==", reservaId),
+      );
+      transaction.set(turnosRef, turnoFinal);
+      if (!publicoSnapshot.empty) {
+        const publicoDoc = publicoSnapshot.docs[0];
+        transaction.update(publicoDoc.ref, {
+          status: "confirmed",
+          // Opcional: podrías guardar el ID del turno final si lo necesitas
+          turnoId: turnosRef.id,
+        });
+      }
       transaction.delete(reservaPendienteDoc.ref);
     });
-    // Redirigir al usuario a una página de éxito en tu app
-    // ¡Crea esta página en tu app de React!
-    // TODO: Reemplazar con la URL de producción antes de desplegar
     const successUrl = process.env.NODE_ENV === "production" ?
       "https://tunelesturnos.web.app/confirmacion-exitosa" :
       "http://localhost:3000/confirmacion-exitosa";
@@ -141,5 +149,50 @@ exports.confirmarTurno = onRequest({
         "Ocurrió un error al confirmar tu turno."+
         "Por favor, inténtalo más tarde.",
     );
+  }
+});
+
+exports.limpiarTurnosExpirados = onSchedule({
+  schedule: "every 1 hours",
+  region: "us-central1",
+  timeZone: "America/Argentina/Buenos_Aires",
+}, async (event) => {
+  const ahora = Date.now();
+  try {
+    const expiradosSnapshot = await db.collection("reservas_pendientes")
+        .where("tokenExpires", "<", ahora)
+        .get();
+    if (expiradosSnapshot.empty) {
+      console.log("No hay reservas expiradas para limpiar.");
+      return;
+    }
+    console.log(`Limpiando ${expiradosSnapshot.size} reservas expiradas...`);
+    const batch = db.batch();
+    for (const doc of expiradosSnapshot.docs) {
+      const data = doc.data();
+      const reservaId = doc.id;
+      const email = data.email ? data.email.toLowerCase() : null;
+      const turnosCaidosRef = db.collection("turnos_caidos").doc(reservaId);
+      batch.set(turnosCaidosRef, {
+        ...data,
+        motivo_caida: "expiracion_token",
+        fecha_caida: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      batch.delete(doc.ref);
+      if (email) {
+        const emailRef = db.collection("mapeo_emails").doc(email);
+        batch.delete(emailRef);
+      }
+      const publicosSnapshot = await db.collection("turnos_publicos")
+          .where("reservaId", "==", reservaId)
+          .get();
+      publicosSnapshot.forEach((pDoc) => {
+        batch.delete(pDoc.ref);
+      });
+    }
+    await batch.commit();
+    console.log("Limpieza completada con éxito.");
+  } catch (error) {
+    console.error("Error en la limpieza de turnos:", error);
   }
 });
