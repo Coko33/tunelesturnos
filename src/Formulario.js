@@ -3,10 +3,11 @@ import { addDoc, collection, getDoc, doc, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import "./Formulario.css";
 import dayjs from "dayjs";
+import "dayjs/locale/es";
 import CerrarIcon from "./CerrarIcon";
+dayjs.locale("es");
 
 const RESERVAS_PENDIENTES_REF = collection(db, "reservas_pendientes");
-const TURNOS_CONFIRMADOS_REF = collection(db, "turnos"); 
 const TURNOS_PUBLICOS_REF = collection(db, "turnos_publicos");
 
 export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisponibles}) {
@@ -90,38 +91,16 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
   };
 
   const checkFutureReservation = async (email) => {
-      /* const hoy = dayjs().toDate();
-      let qConfirmed = query(
-          TURNOS_CONFIRMADOS_REF,
-          where("email", "==", email),
-          where("start", ">", hoy),
-          orderBy("start", "asc")
-      );
-      const confirmedSnapshot = await getDocs(qConfirmed);
-      if (!confirmedSnapshot.empty) {
-          const timestamp = confirmedSnapshot.docs[0].data().start;
-          return dayjs(timestamp.toDate()).format("YYYY-MM-DDTHH:mm:ss");
-      }
-      let qPending = query(
-          RESERVAS_PENDIENTES_REF,
-          where("email", "==", email),
-          where("start", ">", hoy),
-          orderBy("start", "asc")
-      );
-      const pendingSnapshot = await getDocs(qPending);
-      if (!pendingSnapshot.empty) {
-          const timestamp = pendingSnapshot.docs[0].data().start;
-          return dayjs(timestamp.toDate()).format("YYYY-MM-DDTHH:mm:ss"); 
-      }
-      return null; */
     const emailDocRef = doc(db, "mapeo_emails", email.toLowerCase());
     const docSnap = await getDoc(emailDocRef);
-
     if (docSnap.exists()) {
       const data = docSnap.data();
-      const fechaProxima = data.start.toDate();
-      if (dayjs(fechaProxima).isAfter(dayjs())) {
-         return fechaProxima;
+      if (!data.start) return null;
+      const fechaProxima = typeof data.start.toDate === 'function'
+        ? data.start.toDate()
+        : new Date(data.start);
+      if (dayjs(fechaProxima).isValid() && dayjs(fechaProxima).isAfter(dayjs())) {
+        return fechaProxima;
       }
     }
     return null;
@@ -135,14 +114,17 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
       try {
         const existingFutureStart = await checkFutureReservation(form.email);
         if (existingFutureStart) {
-            setLoading(false);
-            const futureDate = dayjs(existingFutureStart).format("dddd D [de] MMMM [a las] HH:mm");
-            setSubmissionMessage(
-                `Ya tenés un turno confirmado o pendiente con este email para el día ${futureDate}. Podés volver a usar este email cuando el turno haya pasado, o despues de 1 hora si no lo confirmaste`
-            );
-            setDeshabilitarBoton(true);
-            emailInputRef.current?.focus();
-            return;
+          const dateObj = dayjs(existingFutureStart);
+          if (dateObj.isValid()) {
+            const futureDate = dateObj.format("dddd D [de] MMMM [a las] HH:mm");
+            setSubmissionMessage(`Ya tenés un turno confirmado o pendiente para el día ${futureDate}. Podés volver a usar este email cuando el turno haya pasado, o despues de 1 hora si no lo confirmaste`);
+          } else {
+            setSubmissionMessage("Ya tenés un turno agendado.");
+          }
+          setDeshabilitarBoton(true);
+          emailInputRef.current?.focus();
+          setLoading(false);
+          return;
         }
         const datosPublicos = {
           start: form.start,

@@ -3,13 +3,15 @@ import { useState, useEffect } from "react";
 import { useAuth } from "./AuthContext";
 import { db } from "./firebase";
 import { collection, getDocs, query, orderBy, deleteDoc, doc } from "firebase/firestore";
+import dayjs from "dayjs";
 
 export default function Admin() {
-  /* const [turnos, setTurnos] = useState([]);
-  const [nuevoTruno, setNuevoTurno] = useState(""); */
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [turnosAgrupados, setTurnosAgrupados] = useState({});
+  const [turnoActual, setTurnoActual] = useState(dayjs().toDate());
+
+  console.log(turnoActual);
 
   const formatTimestampToDate = (timestamp) => {
     if (timestamp && typeof timestamp.toDate === 'function') {
