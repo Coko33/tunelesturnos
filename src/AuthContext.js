@@ -15,46 +15,43 @@ export const useAuth = () => {
   return useContext(AuthContext);
 };
 
-
 export const AuthProvider = ({ children }) => {
-    const navigate = useNavigate();
-    const [loading, setLoading] = useState(true);
-    /* const [isLoggedIn, setIsLoggedIn] = useState(
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  /* const [isLoggedIn, setIsLoggedIn] = useState(
         !!localStorage.getItem('userToken')
     ); */
-    const [user, setUser] = useState(null); 
+  const [user, setUser] = useState(null);
 
-    const login = async (email, password) => {
-        try {
-            await signInWithEmailAndPassword(auth, email, password);
-            navigate("/admin"); 
-        } catch (error) {
-            console.error("Error al iniciar sesión:", error);
-        }
-    };
-
-    const loginWithGoogle = () => {
-        const googleProvider = new GoogleAuthProvider();
-        return signInWithPopup(auth, googleProvider);
-    };
-
-  const logout = () => {
-      signOut(auth);
-      navigate("/");
-    };
-
-    useEffect(() => {
-      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-        setUser(currentUser);
-        setLoading(false);
-      });
-
-      return () => unsubscribe();
-    }, []);
-
-  const value = {login, user, logout, loading, loginWithGoogle
+  const login = async (email, password) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      navigate("/admin");
+    } catch (error) {
+      console.error("Error al iniciar sesión:", error);
+    }
   };
 
- 
+  const loginWithGoogle = () => {
+    const googleProvider = new GoogleAuthProvider();
+    return signInWithPopup(auth, googleProvider);
+  };
+
+  const logout = () => {
+    signOut(auth);
+    navigate("/");
+  };
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const value = { login, user, logout, loading, loginWithGoogle };
+
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

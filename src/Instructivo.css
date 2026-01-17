@@ -12,3 +12,13 @@
     font-size: 14px;
     line-height: 18px;
 }
+.Instructivo__mail {
+    text-align: center;
+}
+@media screen and (max-width: 600px) {
+    .Instructivo__container {
+        position: absolute;
+        top: 100vh;
+    }
+}
+

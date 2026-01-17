@@ -295,13 +295,17 @@
 @media (max-width: 600px) {
   .InstructivoYCalendar__container {
     height: auto;
-    flex-direction: column;
+    /* flex-direction: column; */
+    flex-direction: column-reverse;
   }
   .Calendar__container {
     width: 100%;
-    top: 40px;
+    /* top: 40px; */
     left: 0;
     margin-bottom: 300px;
+    display: inherit; /*sacar*/
+    place-items: inherit; /*sacar*/
+  
   }
   .rbc-toolbar-label {
     margin: 10px;

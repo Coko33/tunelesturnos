@@ -1,16 +1,21 @@
 import { useState, useEffect, useRef } from "react";
-import { addDoc, collection, getDoc, doc, setDoc } from "firebase/firestore";
-import { db } from "./firebase";
+import { addDoc, getDoc, doc, setDoc } from "firebase/firestore";
 import "./Formulario.css";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
 import CerrarIcon from "./CerrarIcon";
+import {
+  RESERVAS_PENDIENTES_REF,
+  TURNOS_PUBLICOS_REF,
+  MAPEO_EMAILS_REF,
+} from "./firebase";
 dayjs.locale("es");
 
-const RESERVAS_PENDIENTES_REF = collection(db, "reservas_pendientes");
-const TURNOS_PUBLICOS_REF = collection(db, "turnos_publicos");
-
-export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisponibles}) {
+export default function Formulario({
+  turnoSeleccionado,
+  onClose,
+  maxPersonasDisponibles,
+}) {
   const formVacio = {
     nombreYApellido: "",
     numeroDocumento: "",
@@ -24,7 +29,7 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
     end: "",
     aceptaCondiciones: false,
   };
-  
+
   const inputRef = useRef(null);
   const emailInputRef = useRef(null);
   const [form, setForm] = useState(formVacio);
@@ -36,13 +41,13 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
 
   useEffect(() => {
     if (turnoSeleccionado) {
-      const startDateObject = dayjs(turnoSeleccionado).toDate(); 
-      const endDateObject = dayjs(turnoSeleccionado).add(20, "minute").toDate();
+      const startDateObject = dayjs(turnoSeleccionado).toDate();
+      const endDateObject = dayjs(turnoSeleccionado).add(20, "minute").toDate();
       setForm((prevForm) => ({
         ...prevForm,
         turno: turnoSeleccionado,
-        start: startDateObject, 
-        end: endDateObject,
+        start: startDateObject,
+        end: endDateObject,
       }));
     }
   }, [turnoSeleccionado]);
@@ -55,7 +60,8 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
     const newErrors = {};
     const nameRegex = /^[a-zA-ZÁÉÍÓÚáéíóúñÑ]{2,}\s[a-zA-ZÁÉÍÓÚáéíóúñÑ\s]{2,}$/;
     if (!nameRegex.test(form.nombreYApellido)) {
-      newErrors.nombreYApellido = "Ingresa al menos un nombre y un apellido (mínimo 2 letras cada uno).";
+      newErrors.nombreYApellido =
+        "Ingresa al menos un nombre y un apellido (mínimo 2 letras cada uno).";
     }
     const docRegex = /^(?=.*[0-9])[a-zA-Z0-9-]{6,20}$/;
     if (!docRegex.test(form.numeroDocumento)) {
@@ -80,26 +86,31 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
     const numPeople = Number(form.cantidadPersonas);
     if (isNaN(numPeople) || numPeople < 1) {
       newErrors.cantidadPersonas = "Debe ser al menos 1 persona.";
-    } else if (numPeople > maxPersonasDisponibles) { 
+    } else if (numPeople > maxPersonasDisponibles) {
       newErrors.cantidadPersonas = `El límite de personas para este turno es ${maxPersonasDisponibles}.`;
     }
     if (!form.aceptaCondiciones) {
-      newErrors.aceptaCondiciones = "Debes aceptar esta condición para reservar.";
+      newErrors.aceptaCondiciones =
+        "Debes aceptar esta condición para reservar.";
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const checkFutureReservation = async (email) => {
-    const emailDocRef = doc(db, "mapeo_emails", email.toLowerCase());
+    const emailDocRef = doc(MAPEO_EMAILS_REF, email.toLowerCase());
     const docSnap = await getDoc(emailDocRef);
     if (docSnap.exists()) {
       const data = docSnap.data();
       if (!data.start) return null;
-      const fechaProxima = typeof data.start.toDate === 'function'
-        ? data.start.toDate()
-        : new Date(data.start);
-      if (dayjs(fechaProxima).isValid() && dayjs(fechaProxima).isAfter(dayjs())) {
+      const fechaProxima =
+        typeof data.start.toDate === "function"
+          ? data.start.toDate()
+          : new Date(data.start);
+      if (
+        dayjs(fechaProxima).isValid() &&
+        dayjs(fechaProxima).isAfter(dayjs())
+      ) {
         return fechaProxima;
       }
     }
@@ -117,7 +128,9 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
           const dateObj = dayjs(existingFutureStart);
           if (dateObj.isValid()) {
             const futureDate = dateObj.format("dddd D [de] MMMM [a las] HH:mm");
-            setSubmissionMessage(`Ya tenés un turno confirmado o pendiente para el día ${futureDate}. Podés volver a usar este email cuando el turno haya pasado, o despues de 1 hora si no lo confirmaste`);
+            setSubmissionMessage(
+              `Ya tenés un turno confirmado o pendiente para el día ${futureDate}. Podés volver a usar este email cuando el turno haya pasado, o despues de 1 hora si no lo confirmaste`
+            );
           } else {
             setSubmissionMessage("Ya tenés un turno agendado.");
           }
@@ -130,22 +143,24 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
           start: form.start,
           end: form.end,
           cantidadPersonas: Number(form.cantidadPersonas),
-          status: "pending" 
+          status: "pending",
         };
         const reservaRef = await addDoc(RESERVAS_PENDIENTES_REF, form);
         await addDoc(TURNOS_PUBLICOS_REF, {
           ...datosPublicos,
-          reservaId: reservaRef.id 
+          reservaId: reservaRef.id,
         });
-        const emailRef = doc(db, "mapeo_emails", form.email.toLowerCase());
+        const emailRef = doc(MAPEO_EMAILS_REF, form.email.toLowerCase());
         await setDoc(emailRef, {
           reservaId: reservaRef.id,
           status: "pending",
-          start: form.start
+          start: form.start,
         });
         setForm(formVacio);
-        setErrors({}); 
-        setSubmissionMessage("¡Casi listo! Revisa tu email para confirmar la reserva.");
+        setErrors({});
+        setSubmissionMessage(
+          "¡Casi listo! Revisa tu email para confirmar la reserva."
+        );
         setEsExitoso(true);
       } catch (error) {
         console.error("Error al reservar turno:", error);
@@ -164,7 +179,7 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
       ...prevForm,
       [name]: type === "checkbox" ? checked : value,
     }));
-    if (name === 'email' && deshabilitarBoton) {
+    if (name === "email" && deshabilitarBoton) {
       setDeshabilitarBoton(false);
     }
     if (errors[name]) {
@@ -181,135 +196,156 @@ export default function Formulario({ turnoSeleccionado, onClose, maxPersonasDisp
     : "";
 
   const manejarCierreManual = () => {
-  // Si esExitoso es true, enviamos true al Calendario para que refresque
-  // Si esExitoso es false, enviamos false para que no gaste lecturas de Firebase innecesarias
-  onClose(esExitoso);
-};
+    // Si esExitoso es true, enviamos true al Calendario para que refresque
+    // Si esExitoso es false, enviamos false para que no gaste lecturas de Firebase innecesarias
+    onClose(esExitoso);
+  };
 
   return (
     <div className="Formulario__canvas">
       <div className="Formulario__container">
         <div className="Formulario__button" onClick={manejarCierreManual}>
-            <CerrarIcon />
+          <CerrarIcon />
         </div>
         {!submissionMessage.includes("¡Casi listo!") && (
           <form onSubmit={handleSubmit}>
-          <div className="labelYError">
-            <label htmlFor="nombreYApellido">Nombre y Apellido</label>
-            {errors.nombreYApellido && <p className="error-message">{errors.nombreYApellido}</p>}
-          </div>
-          <input
-            type="text"
-            value={form.nombreYApellido}
-            onChange={handleChange}
-            name="nombreYApellido"
-            ref={inputRef}
-            placeholder={turnoSeleccionado ? "Escribe tu nombre" : ""}
-          ></input>
-          <div className="labelYError">
-            <label htmlFor="numeroDocumento">Número de Documento</label>
-            {errors.numeroDocumento && <p className="error-message">{errors.numeroDocumento}</p>}
-          </div>
-          <input
-            type="text"
-            value={form.numeroDocumento}
-            onChange={handleChange}
-            name="numeroDocumento"
-          ></input>
-          <div className="labelYError">
-            <label htmlFor="nacionalidad">Nacionalidad</label>
-            {errors.nacionalidad && <p className="error-message">{errors.nacionalidad}</p>}
-          </div>
-          <input
-            type="text"
-            value={form.nacionalidad}
-            onChange={handleChange}
-            name="nacionalidad"
-          ></input>
-
-          <div className="labelYError">
-            <label htmlFor="edad">Edad</label>
-            {errors.edad && <p className="error-message">{errors.edad}</p>}
-          </div>
-          <input
-            type="number"
-            value={form.edad}
-            onChange={handleChange}
-            name="edad"
-          ></input>
-          <div className="labelYError">
-            <label htmlFor="email">Email</label>
-            {errors.email && <p className="error-message">{errors.email}</p>}
-          </div>
-          <input
-            type="email"
-            value={form.email}
-            onChange={handleChange}
-            name="email"
-            ref={emailInputRef}
-          ></input>
-          <div className="labelYError">
-            <label htmlFor="cantidadPersonas">Cantidad de visitantes</label>
-            {errors.cantidadPersonas && <p className="error-message">{errors.cantidadPersonas}</p>}
-          </div>
-          <input
-            type="number"
-            value={form.cantidadPersonas}
-            onChange={handleChange}
-            name="cantidadPersonas"
-            min="1"
-            max={maxPersonasDisponibles}
-            required
-          ></input>
-          
-          <label htmlFor="turno">Turno seleccionado</label>
-          <input
-            type="text"
-            value={turnoDisplay}
-            readOnly
-            name="turno"
-            tabIndex="-1"
-          ></input>
-          <div className="labelYError">
-            <label htmlFor="observaciones">Observaciones (opcional)</label>
-          </div>
-          <textarea
-            name="observaciones"
-            value={form.observaciones}
-            onChange={handleChange}
-            rows="1"
-            style={{ resize: 'none' }}
-          ></textarea>
-          <div className="Formulario__checkboxContainer">
-            {errors.aceptaCondiciones && <p className="error-message">{errors.aceptaCondiciones}</p>}
-            <input 
-              type="checkbox"
-              id="aceptaCondiciones"
-              name="aceptaCondiciones"
-              checked={form.aceptaCondiciones}
+            <div className="labelYError">
+              <label htmlFor="nombreYApellido">Nombre y Apellido</label>
+              {errors.nombreYApellido && (
+                <p className="error-message">{errors.nombreYApellido}</p>
+              )}
+            </div>
+            <input
+              type="text"
+              value={form.nombreYApellido}
               onChange={handleChange}
-            />
-            <label htmlFor="aceptaCondiciones">Acepto que no pueden ingresar a los túneles menores de 16 años</label>
-          </div>
+              name="nombreYApellido"
+              ref={inputRef}
+              placeholder={turnoSeleccionado ? "Escribe tu nombre" : ""}
+            ></input>
+            <div className="labelYError">
+              <label htmlFor="numeroDocumento">Número de Documento</label>
+              {errors.numeroDocumento && (
+                <p className="error-message">{errors.numeroDocumento}</p>
+              )}
+            </div>
+            <input
+              type="text"
+              value={form.numeroDocumento}
+              onChange={handleChange}
+              name="numeroDocumento"
+            ></input>
+            <div className="labelYError">
+              <label htmlFor="nacionalidad">Nacionalidad</label>
+              {errors.nacionalidad && (
+                <p className="error-message">{errors.nacionalidad}</p>
+              )}
+            </div>
+            <input
+              type="text"
+              value={form.nacionalidad}
+              onChange={handleChange}
+              name="nacionalidad"
+            ></input>
 
-          <div className="Formulario__ctaContainer">
-            <button type="submit" disabled={loading || deshabilitarBoton}>
-              {loading ? "Comprobando..." : "Reservar turno"}
-            </button>
-          </div>
-        </form>
+            <div className="labelYError">
+              <label htmlFor="edad">Edad</label>
+              {errors.edad && <p className="error-message">{errors.edad}</p>}
+            </div>
+            <input
+              type="number"
+              value={form.edad}
+              onChange={handleChange}
+              name="edad"
+            ></input>
+            <div className="labelYError">
+              <label htmlFor="email">Email</label>
+              {errors.email && <p className="error-message">{errors.email}</p>}
+            </div>
+            <input
+              type="email"
+              value={form.email}
+              onChange={handleChange}
+              name="email"
+              ref={emailInputRef}
+            ></input>
+            <div className="labelYError">
+              <label htmlFor="cantidadPersonas">Cantidad de visitantes</label>
+              {errors.cantidadPersonas && (
+                <p className="error-message">{errors.cantidadPersonas}</p>
+              )}
+            </div>
+            <input
+              type="number"
+              value={form.cantidadPersonas}
+              onChange={handleChange}
+              name="cantidadPersonas"
+              min="1"
+              max={maxPersonasDisponibles}
+              required
+            ></input>
+
+            <label htmlFor="turno">Turno seleccionado</label>
+            <input
+              type="text"
+              value={turnoDisplay}
+              readOnly
+              name="turno"
+              tabIndex="-1"
+            ></input>
+            <div className="labelYError">
+              <label htmlFor="observaciones">Observaciones (opcional)</label>
+            </div>
+            <textarea
+              name="observaciones"
+              value={form.observaciones}
+              onChange={handleChange}
+              rows="1"
+              style={{ resize: "none" }}
+            ></textarea>
+            <div className="Formulario__checkboxContainer">
+              {errors.aceptaCondiciones && (
+                <p className="error-message">{errors.aceptaCondiciones}</p>
+              )}
+              <input
+                type="checkbox"
+                id="aceptaCondiciones"
+                name="aceptaCondiciones"
+                checked={form.aceptaCondiciones}
+                onChange={handleChange}
+              />
+              <label htmlFor="aceptaCondiciones">
+                Acepto que no pueden ingresar a los túneles menores de 16 años
+              </label>
+            </div>
+
+            <div className="Formulario__ctaContainer">
+              <button type="submit" disabled={loading || deshabilitarBoton}>
+                {loading ? "Comprobando..." : "Reservar turno"}
+              </button>
+            </div>
+          </form>
         )}
-      {submissionMessage && (
-        <p
-          className={submissionMessage.includes("¡Casi listo!") ? "success-message" : "error-message"}
-        >
-          {submissionMessage}
-        </p>
-      )}
-      {submissionMessage.includes("¡Casi listo!") && (
-        <div className="Formulario__disclaimer">
-          <p><strong>Importante:</strong> Tienes 10 minutos para confirmar esta reserva desde el enlace que te enviamos a tu email. Pasado ese tiempo, la reserva se liberará.</p>
-        </div>)}
+        {submissionMessage && (
+          <p
+            className={
+              submissionMessage.includes("¡Casi listo!")
+                ? "success-message"
+                : "error-message"
+            }
+          >
+            {submissionMessage}
+          </p>
+        )}
+        {submissionMessage.includes("¡Casi listo!") && (
+          <div className="Formulario__disclaimer">
+            <p>
+              <strong>Importante:</strong> Tienes 10 minutos para confirmar esta
+              reserva desde el enlace que te enviamos a tu email. Pasado ese
+              tiempo, la reserva se liberará.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

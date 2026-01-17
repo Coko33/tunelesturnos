@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
 export function useEsMovil(threshold = 768) {
   const [esMovil, setEsMovil] = useState(window.innerWidth < threshold);
@@ -9,12 +9,12 @@ export function useEsMovil(threshold = 768) {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         setEsMovil(window.innerWidth < threshold);
-      }, 250); // Debounce de 250ms
+      }, 250);
     };
-    window.addEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
     return () => {
-      window.removeEventListener('resize', handleResize);
-      clearTimeout(timeoutId); // Limpiar el timeout al desmontar
+      window.removeEventListener("resize", handleResize);
+      clearTimeout(timeoutId);
     };
   }, [threshold]);
 

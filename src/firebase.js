@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, collection } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
@@ -13,8 +13,22 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-
 const db = getFirestore(app);
 const auth = getAuth(app);
+
+//prod
+export const TURNOS_CONFIRMADOS_REF = collection(db, "turnos");
+export const RESERVAS_PENDIENTES_REF = collection(db, "reservas_pendientes");
+export const TURNOS_PUBLICOS_REF = collection(db, "turnos_publicos");
+export const MAPEO_EMAILS_REF = collection(db, "mapeo_emails");
+export const TURNOS_CAIDOS_REF = collection(db, "turnos_caidos");
+
+//dev
+/* 
+export const TURNOS_CONFIRMADOS_REF = collection(db, "turnos_dev");
+export const RESERVAS_PENDIENTES_REF = collection(db, "reservas_pendientes_dev");
+export const TURNOS_PUBLICOS_REF = collection(db, "turnos_publicos_dev");
+export const MAPEO_EMAILS_REF = collection(db, "mapeo_emails_dev"); 
+*/
 
 export { db, auth };
