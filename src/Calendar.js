@@ -8,7 +8,6 @@ import "dayjs/locale/es";
 import "./Calendar.css";
 import Formulario from "./Formulario";
 import Instructivo from "./Instructivo";
-import { useEsMovil } from "./useEsMovil";
 import Spinner from "./Spinner";
 import CustomToolbar from "./CustomToolbar";
 import {
@@ -43,27 +42,25 @@ export default function Calendario() {
   const [maxPersonasDisponibles, setMaxPersonasDisponibles] = useState(0);
   const lastViewChangeRef = useRef(0);
 
-  const esMovil = useEsMovil();
-
-  /* useEffect(() => {
+  useEffect(() => {
     const fecha = diaSeleccionado || new Date();
     if (view === "month") {
       fetchItems(fecha);
     } else if (view === "day") {
       fetchItemsForDay(fecha);
     }
-  }, [diaSeleccionado, view]); */
+  }, [diaSeleccionado, view]);
 
+  //busca los TURNOS PUBLICOS entre la fecha de hoy y el ultimo dia del mes
   const fetchItems = async (date) => {
     setLoading(true);
     setError(null);
     const startOfToday = dayjs().startOf("day").toDate();
     const endOfMonth = dayjs(date).endOf("month").toDate();
-    console.log("Desde:" + startOfToday, "hasta:" + endOfMonth);
     const q = query(
       TURNOS_PUBLICOS_REF,
       where("start", ">=", startOfToday),
-      where("start", "<=", endOfMonth)
+      where("start", "<=", endOfMonth),
     );
     try {
       const snapshot = await getDocs(q);
@@ -75,7 +72,7 @@ export default function Calendario() {
           fechaParseada: dayjs(data.start.toDate()),
         };
       });
-
+      //cuenta turnos ocupados por dia y por hora
       const countsByDay = turnosList.reduce((acc, t) => {
         const dayKey = t.fechaParseada.format("YYYY-MM-DD");
         acc[dayKey] = (acc[dayKey] || 0) + t.cantidadPersonas;
@@ -88,6 +85,7 @@ export default function Calendario() {
       }, {});
       setEventCountByDay(countsByDay);
       setEventCountByHour(countsByHour);
+      //estan contando turnos que sobrepasan los 6 turnos por franja
       const turnosFormateadosParaCalendario = turnosList.map((t) => ({
         ...t,
         start: t.fechaParseada.toDate(),
@@ -102,6 +100,7 @@ export default function Calendario() {
     }
   };
 
+  //busca los TURNOS CONFIRMADOS y las RESERVAS PENDIENTES entre la fecha de hoy y el ultimo dia del mes
   const fetchItemsForDay = async (selectedDay) => {
     setLoading(true);
     setError(null);
@@ -110,12 +109,12 @@ export default function Calendario() {
     const turnosQuery = query(
       TURNOS_CONFIRMADOS_REF,
       where("start", ">=", startOfDay),
-      where("start", "<=", endOfDay)
+      where("start", "<=", endOfDay),
     );
     const pendientesQuery = query(
       RESERVAS_PENDIENTES_REF,
       where("start", ">=", startOfDay),
-      where("start", "<=", endOfDay)
+      where("start", "<=", endOfDay),
     );
     try {
       const [turnosSnapshot, pendientesSnapshot] = await Promise.all([
@@ -134,7 +133,7 @@ export default function Calendario() {
       const turnosFormated = turnosList.map((t) => ({
         start: dayjs(t.start).toDate(),
         end: dayjs(t.end).toDate(),
-        title: t.title,
+        title: t.title, //?
       }));
       setTurnos(turnosFormated);
     } catch (e) {
@@ -145,8 +144,9 @@ export default function Calendario() {
     }
   };
 
+  //maneja la vista dia y mes y saltea los dias no laborables y los anteriores a la fecha actual
   const handlerViewChange = (newView) => {
-    lastViewChangeRef.current = Date.now();
+    lastViewChangeRef.current = Date.now(); //guarda el instante en timestamp en que la vista cambió para evitar clics pegados
     setView(newView);
     if (newView === "day") {
       let fechaBusqueda = dayjs(diaSeleccionado);
@@ -165,6 +165,7 @@ export default function Calendario() {
   };
 
   const handleSelectSlot = ({ start, end }) => {
+    //el clic de seleccion tiene que ser 500ms después del clic de cambio de vista
     if (Date.now() - lastViewChangeRef.current < 500) {
       return;
     }
@@ -234,10 +235,11 @@ export default function Calendario() {
     return Math.max(0, turnosMaxByDay - eventosReservados);
   };
 
-  //celdas en la vista mes
+  //celdas en la vista mes. la funcion es llamada una vez por cada celda
   const CustomDateCellWrapper = ({ value, children }) => {
     const dayKey = dayjs(value).format("YYYY-MM-DD");
     const eventosReservados = eventCountByDay[dayKey] || 0;
+    console.log(eventCountByDay);
     const turnosDisponibles = obtenerTurnosDisponiblesPorDia(value);
     const currentMonth = dayjs(diaSeleccionado).month();
     const cellMonth = dayjs(value).month();
@@ -335,8 +337,8 @@ export default function Calendario() {
     className = estaSeleccionado(value)
       ? "selected"
       : estaLleno
-      ? "full"
-      : "available";
+        ? "full"
+        : "available";
 
     return (
       <>
@@ -379,6 +381,7 @@ export default function Calendario() {
 
   const minDate = dayjs().startOf("day").toDate();
   const maxDate = dayjs().add(2, "month").endOf("month").toDate();
+
   const isPreviousDisabled = diaSeleccionado
     ? dayjs(diaSeleccionado).isSameOrBefore(dayjs(minDate), "month")
     : false;
@@ -403,8 +406,8 @@ export default function Calendario() {
               <Spinner />
             </div>
           )}
-          <Anuncio></Anuncio>
-          {/* {!loading && (
+          {/* <Anuncio/> */}
+          {!loading && (
             <Calendar
               localizer={localizer}
               events={turnos}
@@ -413,7 +416,14 @@ export default function Calendario() {
               date={diaSeleccionado}
               onSelectSlot={handleSelectSlot}
               onView={handlerViewChange}
-              onNavigate={(newDate) => setDiaSeleccionado(newDate)}
+              onNavigate={(newDate) => {
+                if (
+                  dayjs(newDate).isBefore(minDate, "month") ||
+                  dayjs(newDate).isAfter(maxDate, "month")
+                )
+                  return;
+                setDiaSeleccionado(newDate);
+              }}
               selectable
               longPressThreshold={1}
               drilldownView={null}
@@ -451,7 +461,7 @@ export default function Calendario() {
                 day: "Dia",
               }}
             />
-          )} */}
+          )}
         </div>
       </div>
     </>

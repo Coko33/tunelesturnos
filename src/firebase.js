@@ -18,17 +18,18 @@ const auth = getAuth(app);
 
 //prod
 export const TURNOS_CONFIRMADOS_REF = collection(db, "turnos");
-export const RESERVAS_PENDIENTES_REF = collection(db, "reservas_pendientes");
-export const TURNOS_PUBLICOS_REF = collection(db, "turnos_publicos");
+export const RESERVAS_PENDIENTES_REF = collection(db, "reservas_pendientes"); //seleccionados no confirmados expuestos en el Front
+export const TURNOS_PUBLICOS_REF = collection(db, "turnos_publicos"); //datos de turnos confirmados expuestos en el Front
 export const MAPEO_EMAILS_REF = collection(db, "mapeo_emails");
-export const TURNOS_CAIDOS_REF = collection(db, "turnos_caidos");
+export const TURNOS_CAIDOS_REF = collection(db, "turnos_caidos"); //reservas que no confirmaron
 
 //dev
 /* 
-export const TURNOS_CONFIRMADOS_REF = collection(db, "turnos_dev");
-export const RESERVAS_PENDIENTES_REF = collection(db, "reservas_pendientes_dev");
-export const TURNOS_PUBLICOS_REF = collection(db, "turnos_publicos_dev");
-export const MAPEO_EMAILS_REF = collection(db, "mapeo_emails_dev"); 
+export const TURNOS_CONFIRMADOS_REF = collection(db, "turnos_TEST");
+export const RESERVAS_PENDIENTES_REF = collection(db, "reservas_pendientes_TEST");
+export const TURNOS_PUBLICOS_REF = collection(db, "turnos_publicos_TEST");
+export const MAPEO_EMAILS_REF = collection(db, "mapeo_emails_TEST"); 
+export const TURNOS_CAIDOS_REF = collection(db, "turnos_caidos_TEST");
 */
 
 export { db, auth };

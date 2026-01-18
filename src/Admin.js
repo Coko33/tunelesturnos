@@ -15,6 +15,8 @@ import {
 } from "firebase/firestore";
 import { TURNOS_CONFIRMADOS_REF, TURNOS_CAIDOS_REF, db } from "./firebase";
 import dayjs from "dayjs";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 export default function Admin() {
   const [loading, setLoading] = useState(false);
@@ -23,6 +25,8 @@ export default function Admin() {
   const [pendientes, setPendientes] = useState(0);
   const [turnoActual, setTurnoActual] = useState([]); //array con las reservas del turno actual
   const [turnoSiguiente, setTurnoSiguiente] = useState([]); //array con las reservas del turno proximo
+  const [inicioFranja, setInicioFranja] = useState(null);
+  const [finFranja, setFinFranja] = useState(null);
 
   /*   useEffect(() => {
     const obtenerContador = async () => {
@@ -52,7 +56,7 @@ export default function Admin() {
     try {
       const turnosQuery = query(
         TURNOS_CONFIRMADOS_REF,
-        orderBy("turno", "desc")
+        orderBy("turno", "desc"),
       );
       const querySnapshot = await getDocs(turnosQuery);
 
@@ -92,12 +96,12 @@ export default function Admin() {
         TURNOS_CONFIRMADOS_REF,
         where("turno", ">=", cotas.inicioTurnoActual.toDate()),
         where("turno", "<", cotas.finTurnoActual.toDate()),
-        orderBy("turno", "asc")
+        orderBy("turno", "asc"),
       );
       const qSiguiente = query(
         TURNOS_CONFIRMADOS_REF,
         where("turno", "==", cotas.finTurnoActual.toDate()),
-        orderBy("turno", "asc")
+        orderBy("turno", "asc"),
       );
 
       const [snapActual, snapSiguiente] = await Promise.all([
@@ -115,6 +119,46 @@ export default function Admin() {
       }));
       setTurnoActual(turnoAct);
       setTurnoSiguiente(turnoSig);
+    } catch (e) {
+      console.error("Error al obtener turnos: ", e);
+      setError("Error al cargar los turnos.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTurnosByFranja = async (inicio, fin) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const q = query(
+        TURNOS_CONFIRMADOS_REF,
+        where("turno", ">=", inicio),
+        where("turno", "<", fin),
+        orderBy("turno", "asc"),
+      );
+      const querySnapshot = await getDocs(q);
+      const grupos = {};
+      querySnapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        const fechaAgrupacion = formatTimestampToDate(data.turno);
+        const turnoFormateado = formatTimestampToDateTime(data.turno);
+        const fechaDisplay = formatDateForDisplay(data.turno);
+
+        const turno = {
+          id: doc.id,
+          ...data,
+          turno: turnoFormateado,
+          fecha: fechaDisplay,
+          start: formatTimestampToDateTime(data.start),
+          end: formatTimestampToDateTime(data.end),
+        };
+        if (!grupos[fechaAgrupacion]) {
+          grupos[fechaAgrupacion] = [];
+        }
+        grupos[fechaAgrupacion].push(turno);
+      });
+      setTurnosAgrupados(grupos);
     } catch (e) {
       console.error("Error al obtener turnos: ", e);
       setError("Error al cargar los turnos.");
@@ -209,13 +253,13 @@ export default function Admin() {
 
         await batch.commit();
         console.log(
-          `Progreso: ${documentosProcesados} de ${totalDocs} revisados...`
+          `Progreso: ${documentosProcesados} de ${totalDocs} revisados...`,
         );
       }
 
       console.log(`¡Migración terminada!`);
       console.log(
-        `Se agregaron campos a ${documentosActualizados} documentos.`
+        `Se agregaron campos a ${documentosActualizados} documentos.`,
       );
     } catch (error) {
       console.error("Error durante la migración:", error);
@@ -230,7 +274,7 @@ export default function Admin() {
       const q = query(
         TURNOS_CAIDOS_REF,
         where("relevado", "==", false),
-        limit(100)
+        limit(100),
       );
 
       const querySnapshot = await getDocs(q);
@@ -280,7 +324,7 @@ export default function Admin() {
 
       console.log(`Lote de ${idsParaActualizar.length} procesado con éxito.`);
       alert(
-        `Descargados ${idsParaActualizar.length} emails. Estos registros ya no aparecerán en la próxima descarga.`
+        `Descargados ${idsParaActualizar.length} emails. Estos registros ya no aparecerán en la próxima descarga.`,
       );
     } catch (error) {
       console.error("Error al procesar el lote:", error);
@@ -456,6 +500,25 @@ export default function Admin() {
           )}
         </div> */}
       </div>
+
+      <div className="admin__tablaFranjaContainer">
+        <DatePicker
+          selected={inicioFranja}
+          onChange={(date) => setInicioFranja(date)}
+          showTimeSelect
+          dateFormat="Pp"
+        />
+        <DatePicker
+          selected={finFranja}
+          onChange={(date) => setFinFranja(date)}
+          showTimeSelect
+          dateFormat="Pp"
+        />
+        <button onClick={() => fetchTurnosByFranja(inicioFranja, finFranja)}>
+          Buscar
+        </button>
+      </div>
+
       <div className="admin__tableContainer">
         <table>
           <thead>
@@ -488,7 +551,7 @@ export default function Admin() {
                   <td>{turno.turno.split(", ")[1]}</td>
                   <td></td>
                 </tr>
-              ))
+              )),
             )}
           </tbody>
         </table>

@@ -97,6 +97,8 @@ export default function Formulario({
     return Object.keys(newErrors).length === 0;
   };
 
+  //chequea si existe un turno confirmado con ese mismo mail con fecha posterior a la actual
+  //devuelve la fecha de la reserva si existe o null
   const checkFutureReservation = async (email) => {
     const emailDocRef = doc(MAPEO_EMAILS_REF, email.toLowerCase());
     const docSnap = await getDoc(emailDocRef);
@@ -104,10 +106,11 @@ export default function Formulario({
       const data = docSnap.data();
       if (!data.start) return null;
       const fechaProxima =
-        typeof data.start.toDate === "function"
+        typeof data.start.toDate === "function" //verifica que es un Timestamp
           ? data.start.toDate()
           : new Date(data.start);
       if (
+        //verifica que sea una fecha valida y que sea posterior a la actual
         dayjs(fechaProxima).isValid() &&
         dayjs(fechaProxima).isAfter(dayjs())
       ) {
@@ -129,7 +132,7 @@ export default function Formulario({
           if (dateObj.isValid()) {
             const futureDate = dateObj.format("dddd D [de] MMMM [a las] HH:mm");
             setSubmissionMessage(
-              `Ya tenés un turno confirmado o pendiente para el día ${futureDate}. Podés volver a usar este email cuando el turno haya pasado, o despues de 1 hora si no lo confirmaste`
+              `Ya tenés un turno confirmado o pendiente para el día ${futureDate}. Podés volver a usar este email cuando el turno haya pasado, o despues de 1 hora si no lo confirmaste`,
             );
           } else {
             setSubmissionMessage("Ya tenés un turno agendado.");
@@ -159,7 +162,7 @@ export default function Formulario({
         setForm(formVacio);
         setErrors({});
         setSubmissionMessage(
-          "¡Casi listo! Revisa tu email para confirmar la reserva."
+          "¡Casi listo! Revisa tu email para confirmar la reserva.",
         );
         setEsExitoso(true);
       } catch (error) {
