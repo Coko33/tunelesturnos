@@ -85,7 +85,7 @@ export default function Calendario() {
       }, {});
       setEventCountByDay(countsByDay);
       setEventCountByHour(countsByHour);
-      //estan contando turnos que sobrepasan los 6 turnos por franja
+      //(estan contando turnos que sobrepasan los 6 turnos por franja)
       const turnosFormateadosParaCalendario = turnosList.map((t) => ({
         ...t,
         start: t.fechaParseada.toDate(),
@@ -100,7 +100,7 @@ export default function Calendario() {
     }
   };
 
-  //busca los TURNOS CONFIRMADOS y las RESERVAS PENDIENTES entre la fecha de hoy y el ultimo dia del mes
+  //busca los TURNOS CONFIRMADOS y las RESERVAS PENDIENTES entre el horario de inicio y de fin del dia
   const fetchItemsForDay = async (selectedDay) => {
     setLoading(true);
     setError(null);
@@ -239,7 +239,6 @@ export default function Calendario() {
   const CustomDateCellWrapper = ({ value, children }) => {
     const dayKey = dayjs(value).format("YYYY-MM-DD");
     const eventosReservados = eventCountByDay[dayKey] || 0;
-    console.log(eventCountByDay);
     const turnosDisponibles = obtenerTurnosDisponiblesPorDia(value);
     const currentMonth = dayjs(diaSeleccionado).month();
     const cellMonth = dayjs(value).month();

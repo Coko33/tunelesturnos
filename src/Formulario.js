@@ -1,15 +1,18 @@
 import { useState, useEffect, useRef } from "react";
-import { addDoc, getDoc, doc, setDoc } from "firebase/firestore";
+import { runTransaction, doc } from "firebase/firestore";
 import "./Formulario.css";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
 import CerrarIcon from "./CerrarIcon";
 import {
+  db,
   RESERVAS_PENDIENTES_REF,
   TURNOS_PUBLICOS_REF,
   MAPEO_EMAILS_REF,
 } from "./firebase";
 dayjs.locale("es");
+
+const MAX_PERSONAS_POR_TURNO = 6;
 
 export default function Formulario({
   turnoSeleccionado,
@@ -97,68 +100,81 @@ export default function Formulario({
     return Object.keys(newErrors).length === 0;
   };
 
-  //chequea si existe un turno confirmado con ese mismo mail con fecha posterior a la actual
-  //devuelve la fecha de la reserva si existe o null
-  const checkFutureReservation = async (email) => {
-    const emailDocRef = doc(MAPEO_EMAILS_REF, email.toLowerCase());
-    const docSnap = await getDoc(emailDocRef);
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      if (!data.start) return null;
-      const fechaProxima =
-        typeof data.start.toDate === "function" //verifica que es un Timestamp
-          ? data.start.toDate()
-          : new Date(data.start);
-      if (
-        //verifica que sea una fecha valida y que sea posterior a la actual
-        dayjs(fechaProxima).isValid() &&
-        dayjs(fechaProxima).isAfter(dayjs())
-      ) {
-        return fechaProxima;
-      }
-    }
-    return null;
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmissionMessage("");
     if (isValidForm(form)) {
       setLoading(true);
       try {
-        const existingFutureStart = await checkFutureReservation(form.email);
-        if (existingFutureStart) {
-          const dateObj = dayjs(existingFutureStart);
-          if (dateObj.isValid()) {
-            const futureDate = dateObj.format("dddd D [de] MMMM [a las] HH:mm");
-            setSubmissionMessage(
-              `Ya tenés un turno confirmado o pendiente para el día ${futureDate}. Podés volver a usar este email cuando el turno haya pasado, o despues de 1 hora si no lo confirmaste`,
-            );
-          } else {
-            setSubmissionMessage("Ya tenés un turno agendado.");
+        await runTransaction(db, async (transaction) => {
+          // 1. Verificar si el email ya tiene reserva futura (Lectura)
+          const emailRef = doc(MAPEO_EMAILS_REF, form.email.toLowerCase());
+          const emailSnap = await transaction.get(emailRef);
+
+          if (emailSnap.exists()) {
+            const data = emailSnap.data();
+            if (data.start) {
+              const fechaProxima =
+                typeof data.start.toDate === "function"
+                  ? data.start.toDate()
+                  : new Date(data.start);
+              if (
+                dayjs(fechaProxima).isValid() &&
+                dayjs(fechaProxima).isAfter(dayjs())
+              ) {
+                throw new Error(`EMAIL_RESERVED:${fechaProxima.toISOString()}`);
+              }
+            }
           }
-          setDeshabilitarBoton(true);
-          emailInputRef.current?.focus();
-          setLoading(false);
-          return;
-        }
-        const datosPublicos = {
-          start: form.start,
-          end: form.end,
-          cantidadPersonas: Number(form.cantidadPersonas),
-          status: "pending",
-        };
-        const reservaRef = await addDoc(RESERVAS_PENDIENTES_REF, form);
-        await addDoc(TURNOS_PUBLICOS_REF, {
-          ...datosPublicos,
-          reservaId: reservaRef.id,
+
+          // 2. Verificar capacidad del turno (Lectura)
+          // Usamos un documento contador para atomicidad
+          const slotKey = dayjs(form.start).format("YYYY-MM-DD_HH-mm");
+          const counterRef = doc(db, "counters", slotKey);
+          const counterSnap = await transaction.get(counterRef);
+          const currentCount = counterSnap.exists()
+            ? counterSnap.data().count
+            : 0;
+
+          if (
+            currentCount + Number(form.cantidadPersonas) >
+            MAX_PERSONAS_POR_TURNO
+          ) {
+            throw new Error("CAPACITY_FULL");
+          }
+
+          // 3. Escrituras (Todas deben ocurrir si las lecturas son validas)
+
+          // a. Crear reserva pendiente
+          const reservaRef = doc(RESERVAS_PENDIENTES_REF); // Generamos ID nuevo
+          transaction.set(reservaRef, form);
+
+          // b. Crear turno publico
+          const datosPublicos = {
+            start: form.start,
+            end: form.end,
+            cantidadPersonas: Number(form.cantidadPersonas),
+            status: "pending",
+            reservaId: reservaRef.id,
+          };
+          const publicoRef = doc(TURNOS_PUBLICOS_REF);
+          transaction.set(publicoRef, datosPublicos);
+
+          // c. Actualizar mapeo de email
+          transaction.set(emailRef, {
+            reservaId: reservaRef.id,
+            status: "pending",
+            start: form.start,
+          });
+
+          // d. Actualizar contador de cupos
+          transaction.set(
+            counterRef,
+            { count: currentCount + Number(form.cantidadPersonas) },
+            { merge: true },
+          );
         });
-        const emailRef = doc(MAPEO_EMAILS_REF, form.email.toLowerCase());
-        await setDoc(emailRef, {
-          reservaId: reservaRef.id,
-          status: "pending",
-          start: form.start,
-        });
+
         setForm(formVacio);
         setErrors({});
         setSubmissionMessage(
@@ -167,7 +183,27 @@ export default function Formulario({
         setEsExitoso(true);
       } catch (error) {
         console.error("Error al reservar turno:", error);
-        setSubmissionMessage("Error al reservar el turno. Inténtalo de nuevo.");
+        if (error.message === "CAPACITY_FULL") {
+          setSubmissionMessage(
+            "El turno se acaba de ocupar por otro usuario. Por favor intenta con otro horario.",
+          );
+        } else if (
+          error.message &&
+          error.message.startsWith("EMAIL_RESERVED")
+        ) {
+          const dateStr = error.message.split(":")[1];
+          const dateObj = dayjs(dateStr);
+          const futureDate = dateObj.format("dddd D [de] MMMM [a las] HH:mm");
+          setSubmissionMessage(
+            `Ya tenés un turno confirmado o pendiente para el día ${futureDate}. Podés volver a usar este email cuando el turno haya pasado, o despues de 1 hora si no lo confirmaste`,
+          );
+          setDeshabilitarBoton(true);
+          emailInputRef.current?.focus();
+        } else {
+          setSubmissionMessage(
+            "Error al reservar el turno. Inténtalo de nuevo.",
+          );
+        }
       } finally {
         setLoading(false);
       }
