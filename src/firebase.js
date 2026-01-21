@@ -1,6 +1,11 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection } from "firebase/firestore";
+import {
+  getFirestore,
+  collection,
+  connectFirestoreEmulator,
+} from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA78yyx4mNKlQYr7vVQ4jIRFENQfC-Kn9Y",
@@ -15,21 +20,39 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+const functions = getFunctions(app);
 
-//prod
-export const TURNOS_CONFIRMADOS_REF = collection(db, "turnos");
-export const RESERVAS_PENDIENTES_REF = collection(db, "reservas_pendientes"); //seleccionados no confirmados expuestos en el Front
-export const TURNOS_PUBLICOS_REF = collection(db, "turnos_publicos"); //datos de turnos confirmados expuestos en el Front
-export const MAPEO_EMAILS_REF = collection(db, "mapeo_emails");
-export const TURNOS_CAIDOS_REF = collection(db, "turnos_caidos"); //reservas que no confirmaron
+// Detectamos si estamos en desarrollo (localhost)
+const isDev = process.env.NODE_ENV === "development";
 
-//dev
-/* 
-export const TURNOS_CONFIRMADOS_REF = collection(db, "turnos_TEST");
-export const RESERVAS_PENDIENTES_REF = collection(db, "reservas_pendientes_TEST");
-export const TURNOS_PUBLICOS_REF = collection(db, "turnos_publicos_TEST");
-export const MAPEO_EMAILS_REF = collection(db, "mapeo_emails_TEST"); 
-export const TURNOS_CAIDOS_REF = collection(db, "turnos_caidos_TEST");
-*/
+if (isDev) {
+  // Conectar a los emuladores locales (puertos por defecto)
+  connectFirestoreEmulator(db, "127.0.0.1", 8080);
+  connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+}
 
-export { db, auth };
+// Función auxiliar para elegir el nombre de la colección (usa _dev para coincidir con functions)
+const getCollectionName = (name) => (isDev ? `${name}_dev` : name);
+
+export const TURNOS_CONFIRMADOS_REF = collection(
+  db,
+  getCollectionName("turnos"),
+);
+export const RESERVAS_PENDIENTES_REF = collection(
+  db,
+  getCollectionName("reservas_pendientes"),
+); //seleccionados no confirmados expuestos en el Front
+export const TURNOS_PUBLICOS_REF = collection(
+  db,
+  getCollectionName("turnos_publicos"),
+); //datos de turnos confirmados expuestos en el Front
+export const MAPEO_EMAILS_REF = collection(
+  db,
+  getCollectionName("mapeo_emails"),
+);
+export const TURNOS_CAIDOS_REF = collection(
+  db,
+  getCollectionName("turnos_caidos"),
+); //reservas que no confirmaron
+
+export { db, auth, functions };

@@ -28,15 +28,15 @@ export default function Admin() {
   const [inicioFranja, setInicioFranja] = useState(null);
   const [finFranja, setFinFranja] = useState(null);
 
-  /*   useEffect(() => {
+  /* useEffect(() => {
     const obtenerContador = async () => {
       const q = query(TURNOS_CAIDOS_REF, where("relevado", "==", false));
       const snap = await getDocs(q);
       setPendientes(snap.size);
     };
     obtenerContador();
-  }, []); */
-  /* 
+  }, []);
+
   useEffect(() => {
     fetchTurnos();
   }, []); */
@@ -44,18 +44,18 @@ export default function Admin() {
   const cotas = useCotasProximos();
   const { logout } = useAuth();
 
-  /*   useEffect(() => {
+  useEffect(() => {
     if (cotas) {
       fetchProximosTurnos();
     }
-  }, [cotas?.inicioTurnoActual]); */
+  }, [cotas?.inicioTurnoActual]);
 
   const fetchTurnos = async () => {
     setLoading(true);
     setError(null);
     try {
       const turnosQuery = query(
-        TURNOS_CONFIRMADOS_REF,
+        TURNOS_CONFIRMADOS_REF, //TURNOS_CAIDOS_REF,
         orderBy("turno", "desc"),
       );
       const querySnapshot = await getDocs(turnosQuery);

@@ -1,18 +1,14 @@
 import { useState, useEffect, useRef } from "react";
-import { runTransaction, doc } from "firebase/firestore";
+//import { getFunctions, httpsCallable } from "firebase/functions";
+import { httpsCallable } from "firebase/functions";
 import "./Formulario.css";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
 import CerrarIcon from "./CerrarIcon";
-import {
-  db,
-  RESERVAS_PENDIENTES_REF,
-  TURNOS_PUBLICOS_REF,
-  MAPEO_EMAILS_REF,
-} from "./firebase";
+import { functions } from "./firebase";
 dayjs.locale("es");
 
-const MAX_PERSONAS_POR_TURNO = 6;
+// La lógica de negocio y las transacciones ahora se manejan en una Cloud Function.
 
 export default function Formulario({
   turnoSeleccionado,
@@ -41,6 +37,9 @@ export default function Formulario({
   const [submissionMessage, setSubmissionMessage] = useState("");
   const [deshabilitarBoton, setDeshabilitarBoton] = useState(false);
   const [esExitoso, setEsExitoso] = useState(false);
+
+  //const functions = getFunctions();
+  const crearReserva = httpsCallable(functions, "crearReserva");
 
   useEffect(() => {
     if (turnoSeleccionado) {
@@ -106,74 +105,9 @@ export default function Formulario({
     if (isValidForm(form)) {
       setLoading(true);
       try {
-        await runTransaction(db, async (transaction) => {
-          // 1. Verificar si el email ya tiene reserva futura (Lectura)
-          const emailRef = doc(MAPEO_EMAILS_REF, form.email.toLowerCase());
-          const emailSnap = await transaction.get(emailRef);
-
-          if (emailSnap.exists()) {
-            const data = emailSnap.data();
-            if (data.start) {
-              const fechaProxima =
-                typeof data.start.toDate === "function"
-                  ? data.start.toDate()
-                  : new Date(data.start);
-              if (
-                dayjs(fechaProxima).isValid() &&
-                dayjs(fechaProxima).isAfter(dayjs())
-              ) {
-                throw new Error(`EMAIL_RESERVED:${fechaProxima.toISOString()}`);
-              }
-            }
-          }
-
-          // 2. Verificar capacidad del turno (Lectura)
-          // Usamos un documento contador para atomicidad
-          const slotKey = dayjs(form.start).format("YYYY-MM-DD_HH-mm");
-          const counterRef = doc(db, "counters", slotKey);
-          const counterSnap = await transaction.get(counterRef);
-          const currentCount = counterSnap.exists()
-            ? counterSnap.data().count
-            : 0;
-
-          if (
-            currentCount + Number(form.cantidadPersonas) >
-            MAX_PERSONAS_POR_TURNO
-          ) {
-            throw new Error("CAPACITY_FULL");
-          }
-
-          // 3. Escrituras (Todas deben ocurrir si las lecturas son validas)
-
-          // a. Crear reserva pendiente
-          const reservaRef = doc(RESERVAS_PENDIENTES_REF); // Generamos ID nuevo
-          transaction.set(reservaRef, form);
-
-          // b. Crear turno publico
-          const datosPublicos = {
-            start: form.start,
-            end: form.end,
-            cantidadPersonas: Number(form.cantidadPersonas),
-            status: "pending",
-            reservaId: reservaRef.id,
-          };
-          const publicoRef = doc(TURNOS_PUBLICOS_REF);
-          transaction.set(publicoRef, datosPublicos);
-
-          // c. Actualizar mapeo de email
-          transaction.set(emailRef, {
-            reservaId: reservaRef.id,
-            status: "pending",
-            start: form.start,
-          });
-
-          // d. Actualizar contador de cupos
-          transaction.set(
-            counterRef,
-            { count: currentCount + Number(form.cantidadPersonas) },
-            { merge: true },
-          );
-        });
+        // Llamamos a la Cloud Function con los datos del formulario.
+        // Los objetos Date en `form.start` y `form.end` se serializan a strings.
+        await crearReserva(form);
 
         setForm(formVacio);
         setErrors({});
@@ -183,12 +117,16 @@ export default function Formulario({
         setEsExitoso(true);
       } catch (error) {
         console.error("Error al reservar turno:", error);
-        if (error.message === "CAPACITY_FULL") {
+        // Manejar errores específicos de la Cloud Function
+        if (
+          error.code === "functions/resource-exhausted" &&
+          error.message === "CAPACITY_FULL"
+        ) {
           setSubmissionMessage(
             "El turno se acaba de ocupar por otro usuario. Por favor intenta con otro horario.",
           );
         } else if (
-          error.message &&
+          error.code === "functions/already-exists" &&
           error.message.startsWith("EMAIL_RESERVED")
         ) {
           const dateStr = error.message.split(":")[1];
