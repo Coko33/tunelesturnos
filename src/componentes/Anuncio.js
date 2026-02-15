@@ -1,5 +1,5 @@
 import "./Anuncio.css";
-import Logos from "./img/logos_-01.png";
+import Logos from ".../img/logos_-01.png";
 export default function Anuncio() {
   return (
     <>

@@ -17,6 +17,7 @@ import { TURNOS_CONFIRMADOS_REF, TURNOS_CAIDOS_REF, db } from "./firebase";
 import dayjs from "dayjs";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import SelectorApertura from "./componentes/SelectorApertura";
 
 export default function Admin() {
   const [loading, setLoading] = useState(false);
@@ -406,6 +407,7 @@ export default function Admin() {
 
   return (
     <>
+      <SelectorApertura></SelectorApertura>
       <div className="admin__headerContainer">
         <h1>Panel de Administración</h1>
         <button onClick={logout}>Salir</button>

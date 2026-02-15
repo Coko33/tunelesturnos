@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-//import { getFunctions, httpsCallable } from "firebase/functions";
+// import { getFunctions, httpsCallable } from "firebase/functions";
 import { httpsCallable } from "firebase/functions";
 import "./Formulario.css";
 import dayjs from "dayjs";
@@ -7,8 +7,6 @@ import "dayjs/locale/es";
 import CerrarIcon from "./CerrarIcon";
 import { functions } from "./firebase";
 dayjs.locale("es");
-
-// La lógica de negocio y las transacciones ahora se manejan en una Cloud Function.
 
 export default function Formulario({
   turnoSeleccionado,
@@ -105,10 +103,12 @@ export default function Formulario({
     if (isValidForm(form)) {
       setLoading(true);
       try {
-        // Llamamos a la Cloud Function con los datos del formulario.
-        // Los objetos Date en `form.start` y `form.end` se serializan a strings.
-        await crearReserva(form);
-
+        const dataToSend = {
+          ...form,
+          start: dayjs(form.start).toISOString(),
+          end: dayjs(form.end).toISOString(),
+        };
+        await crearReserva(dataToSend);
         setForm(formVacio);
         setErrors({});
         setSubmissionMessage(
@@ -117,8 +117,11 @@ export default function Formulario({
         setEsExitoso(true);
       } catch (error) {
         console.error("Error al reservar turno:", error);
-        // Manejar errores específicos de la Cloud Function
-        if (
+        if (error.code === "failed-precondition") {
+          setSubmissionMessage(
+            "Lo sentimos, el sistema de reservas está cerrado en este momento.",
+          );
+        } else if (
           error.code === "functions/resource-exhausted" &&
           error.message === "CAPACITY_FULL"
         ) {
@@ -129,7 +132,7 @@ export default function Formulario({
           error.code === "functions/already-exists" &&
           error.message.startsWith("EMAIL_RESERVED")
         ) {
-          const dateStr = error.message.split(":")[1];
+          const dateStr = error.message.replace("EMAIL_RESERVED:", "");
           const dateObj = dayjs(dateStr);
           const futureDate = dateObj.format("dddd D [de] MMMM [a las] HH:mm");
           setSubmissionMessage(
@@ -173,8 +176,6 @@ export default function Formulario({
     : "";
 
   const manejarCierreManual = () => {
-    // Si esExitoso es true, enviamos true al Calendario para que refresque
-    // Si esExitoso es false, enviamos false para que no gaste lecturas de Firebase innecesarias
     onClose(esExitoso);
   };
 

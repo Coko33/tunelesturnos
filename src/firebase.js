@@ -6,6 +6,10 @@ import {
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
+import {
+  initializeAppCheck,
+  ReCaptchaEnterpriseProvider,
+} from "firebase/app-check";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA78yyx4mNKlQYr7vVQ4jIRFENQfC-Kn9Y",
@@ -22,16 +26,21 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 const functions = getFunctions(app);
 
-// Detectamos si estamos en desarrollo (localhost)
-const isDev = process.env.NODE_ENV === "development";
+const isDev =
+  window.location.hostname === "localhost" ||
+  process.env.NODE_ENV === "development";
 
 if (isDev) {
-  // Conectar a los emuladores locales (puertos por defecto)
-  connectFirestoreEmulator(db, "127.0.0.1", 8080);
-  connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+  // token harcodeado desde varriable de entorno
+  window.FIREBASE_APPCHECK_DEBUG_TOKEN =
+    process.env.REACT_APP_APPCHECK_DEBUG_TOKEN;
+  /* connectFirestoreEmulator(db, "127.0.0.1", 8080);
+  connectFunctionsEmulator(functions, "127.0.0.1", 5001); */
+  connectFirestoreEmulator(db, "localhost", 8080);
+  connectFunctionsEmulator(functions, "localhost", 5001);
 }
 
-// Función auxiliar para elegir el nombre de la colección (usa _dev para coincidir con functions)
+// selecciona las colecciones de testing en entorno de desarrollo
 const getCollectionName = (name) => (isDev ? `${name}_dev` : name);
 
 export const TURNOS_CONFIRMADOS_REF = collection(
@@ -41,11 +50,11 @@ export const TURNOS_CONFIRMADOS_REF = collection(
 export const RESERVAS_PENDIENTES_REF = collection(
   db,
   getCollectionName("reservas_pendientes"),
-); //seleccionados no confirmados expuestos en el Front
+);
 export const TURNOS_PUBLICOS_REF = collection(
   db,
   getCollectionName("turnos_publicos"),
-); //datos de turnos confirmados expuestos en el Front
+);
 export const MAPEO_EMAILS_REF = collection(
   db,
   getCollectionName("mapeo_emails"),
@@ -53,6 +62,15 @@ export const MAPEO_EMAILS_REF = collection(
 export const TURNOS_CAIDOS_REF = collection(
   db,
   getCollectionName("turnos_caidos"),
-); //reservas que no confirmaron
+);
+export const COUNTERS_REF = collection(db, getCollectionName("counters"));
+export const APERTURA_REF = collection(db, getCollectionName("apertura"));
+
+initializeAppCheck(app, {
+  provider: new ReCaptchaEnterpriseProvider(
+    "6LeneVssAAAAAEhWDjyUDCiGyUGMyM3G5NAXeju7",
+  ),
+  isTokenAutoRefreshEnabled: true,
+});
 
 export { db, auth, functions };

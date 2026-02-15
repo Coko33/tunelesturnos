@@ -1,20 +1,23 @@
-import { useState, useEffect, useRef } from "react";
-import { getDocs, query, where } from "firebase/firestore";
+import { useState, useEffect, useRef, use } from "react";
+import { getDocs, query, where, doc, getDoc } from "firebase/firestore";
 import { Calendar, dayjsLocalizer } from "react-big-calendar";
-import Anuncio from "./Anuncio";
-import "react-big-calendar/lib/css/react-big-calendar.css";
-import dayjs from "dayjs";
-import "dayjs/locale/es";
-import "./Calendar.css";
 import Formulario from "./Formulario";
 import Instructivo from "./Instructivo";
 import Spinner from "./Spinner";
 import CustomToolbar from "./CustomToolbar";
+//import Anuncio from "./componentes/Anuncio";
+import "react-big-calendar/lib/css/react-big-calendar.css";
+import dayjs from "dayjs";
+import "dayjs/locale/es";
+import "./Calendar.css";
+import NoHayMasHabilitados from "./NoHayMasHabilitados";
 import {
   TURNOS_CONFIRMADOS_REF,
   RESERVAS_PENDIENTES_REF,
   TURNOS_PUBLICOS_REF,
+  APERTURA_REF,
 } from "./firebase";
+import HabilitadaBanner from "./componentes/HabilitadaBanner";
 dayjs.locale("es");
 const turnosMaxByDay = 54;
 const turnosMaxBySlot = 6;
@@ -40,14 +43,61 @@ export default function Calendario() {
   const [loading, setLoading] = useState(false);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [maxPersonasDisponibles, setMaxPersonasDisponibles] = useState(0);
+  const [mostrarNoHayMas, setMostrarNoHayMas] = useState(false);
   const lastViewChangeRef = useRef(0);
+  const [turneraHabilitada, setTurneraHabilitada] = useState(false);
+  const [diaHabilitada, setDiaHabilitada] = useState(null);
+  const [inicioHabilitada, setInicioHabilitada] = useState(null);
+  const [finHabilitada, setFinHabilitada] = useState(null);
+  const minDate = dayjs().day(5).startOf("day").toDate();
+  const maxDate = dayjs().day(7).endOf("day").toDate();
 
   useEffect(() => {
-    const fecha = diaSeleccionado || new Date();
-    if (view === "month") {
-      fetchItems(fecha);
-    } else if (view === "day") {
-      fetchItemsForDay(fecha);
+    const esHorarioHabilitado = async () => {
+      try {
+        const docRef = doc(APERTURA_REF, "horarios");
+        const docSnap = await getDoc(docRef);
+        if (!docSnap.exists()) {
+          console.log("El documento de horarios no existe");
+          return;
+        }
+        const { dia, inicio, fin } = docSnap.data();
+        setDiaHabilitada(dia);
+        setInicioHabilitada(inicio);
+        setFinHabilitada(fin);
+        const zonaHoraria = "America/Argentina/Buenos_Aires";
+        const ahora = dayjs().tz(zonaHoraria);
+        const nombreDiaActual = ahora.format("dddd");
+        const diaActualCapitalizado =
+          nombreDiaActual.charAt(0).toUpperCase() + nombreDiaActual.slice(1);
+        if (diaActualCapitalizado === dia) {
+          const [horaInicio, minInicio] = inicio.split(":").map(Number);
+          const [horaFin, minFin] = fin.split(":").map(Number);
+          const momentoInicio = ahora
+            .hour(horaInicio)
+            .minute(minInicio)
+            .second(0);
+          const momentoFin = ahora.hour(horaFin).minute(minFin).second(0);
+          if (ahora.isAfter(momentoInicio) && ahora.isBefore(momentoFin)) {
+            setTurneraHabilitada(true);
+            return;
+          }
+        }
+      } catch {
+      } finally {
+      }
+    };
+    esHorarioHabilitado();
+  }, []);
+
+  useEffect(() => {
+    if (turneraHabilitada) {
+      const fecha = diaSeleccionado || new Date();
+      if (view === "month") {
+        fetchItems(fecha);
+      } else if (view === "day") {
+        fetchItemsForDay(fecha);
+      }
     }
   }, [diaSeleccionado, view]);
 
@@ -169,6 +219,16 @@ export default function Calendario() {
     if (Date.now() - lastViewChangeRef.current < 500) {
       return;
     }
+    const fueraDeRango =
+      dayjs(start).isBefore(dayjs(minDate), "day") ||
+      dayjs(start).isAfter(dayjs(maxDate), "day");
+    if (
+      fueraDeRango ||
+      esDiaNoLaborable(start) ||
+      (esDiaPasado(start) && !dayjs(start).isSame(dayjs(), "day"))
+    ) {
+      return;
+    }
     if (mostrarFormulario && dayjs(start).isSame(dayjs(turnoSeleccionado)))
       return;
     if (
@@ -243,14 +303,24 @@ export default function Calendario() {
     const currentMonth = dayjs(diaSeleccionado).month();
     const cellMonth = dayjs(value).month();
     const esNoLaborable = esDiaNoLaborable(value);
+
+    const fueraDeRango =
+      dayjs(value).isBefore(dayjs(minDate), "day") ||
+      dayjs(value).isAfter(dayjs(maxDate), "day");
+
     const ocupacionDiaria = eventosReservados / turnosMaxByDay; // Ej: 1/3 = 0.3333
     const porcentajeOcupacionDiaria = ocupacionDiaria * 100; // Ej: 33.33%
+
     if (currentMonth !== cellMonth) {
       return <div className="rbc-day-bg">{children}</div>;
     }
     let displayText = "";
     let statusClass = "";
-    if (esDiaPasado(value)) {
+
+    if (fueraDeRango) {
+      displayText = "No disponible";
+      statusClass = "disabled-day"; // Reutilizamos la clase o creamos una nueva
+    } else if (esDiaPasado(value)) {
       displayText = "";
       statusClass = "past-day";
     } else if (esNoLaborable) {
@@ -266,6 +336,7 @@ export default function Calendario() {
 
     const handleCellClick = (e) => {
       e.stopPropagation();
+      if (fueraDeRango) return;
       handleSelectSlot({ start: value, end: value });
     };
 
@@ -273,18 +344,21 @@ export default function Calendario() {
       <div
         className={`rbc-day-bg custom-date-cell-wrapper ${statusClass}`}
         onClick={handleCellClick}
+        style={fueraDeRango ? { pointerEvents: "none", opacity: 0.5 } : {}} // Opcional: refuerzo visual
       >
         {children}
         {view === "month" && (
           <div className="event-count-indicator">
-            {eventosReservados > 0 && turnosDisponibles > 0 && (
-              <div
-                className="daily-occupancy-bar"
-                style={{
-                  width: `${porcentajeOcupacionDiaria}%`,
-                }}
-              />
-            )}
+            {!fueraDeRango &&
+              eventosReservados > 0 &&
+              turnosDisponibles > 0 && (
+                <div
+                  className="daily-occupancy-bar"
+                  style={{
+                    width: `${porcentajeOcupacionDiaria}%`,
+                  }}
+                />
+              )}
             <p
               className="daily-text-indicator"
               dangerouslySetInnerHTML={{ __html: displayText }}
@@ -378,9 +452,6 @@ export default function Calendario() {
     }
   };
 
-  const minDate = dayjs().startOf("day").toDate();
-  const maxDate = dayjs().add(2, "month").endOf("month").toDate();
-
   const isPreviousDisabled = diaSeleccionado
     ? dayjs(diaSeleccionado).isSameOrBefore(dayjs(minDate), "month")
     : false;
@@ -397,71 +468,81 @@ export default function Calendario() {
           maxPersonasDisponibles={maxPersonasDisponibles}
         />
       )}
+      {mostrarNoHayMas && <NoHayMasHabilitados />}
       <div className="InstructivoYCalendar__container">
         <Instructivo />
-        <div className={`Calendar__container view-${view}`}>
-          {loading && (
-            <div className="Calendar__spinner-overlay">
-              <Spinner />
-            </div>
-          )}
-          {/* <Anuncio/> */}
-          {!loading && (
-            <Calendar
-              localizer={localizer}
-              events={turnos}
-              views={["month", "day"]}
-              view={view}
-              date={diaSeleccionado}
-              onSelectSlot={handleSelectSlot}
-              onView={handlerViewChange}
-              onNavigate={(newDate) => {
-                if (
-                  dayjs(newDate).isBefore(minDate, "month") ||
-                  dayjs(newDate).isAfter(maxDate, "month")
-                )
-                  return;
-                setDiaSeleccionado(newDate);
-              }}
-              selectable
-              longPressThreshold={1}
-              drilldownView={null}
-              components={{
-                dateCellWrapper: CustomDateCellWrapper,
-                timeSlotWrapper: CustomTimeSlotWrapper,
-                toolbar: (props) => (
-                  <CustomToolbar
-                    {...props}
-                    esDiaNoLaborable={esDiaNoLaborable}
-                    minDate={minDate}
-                    maxDate={maxDate}
-                    setDiaSeleccionado={setDiaSeleccionado}
-                  />
-                ),
-              }}
-              min={
-                view === "day"
-                  ? dayjs().hour(horaMin).minute(0).toDate()
-                  : minDate
-              }
-              max={
-                view === "day"
-                  ? dayjs().hour(horaMax).minute(0).toDate()
-                  : maxDate
-              }
-              timeslots={3}
-              step={20}
-              showMultiDayTimes={false}
-              messages={{
-                next: "Siguiente",
-                previous: "Anterior",
-                today: "Hoy",
-                month: "Mes",
-                day: "Dia",
-              }}
-            />
-          )}
-        </div>
+        {!turneraHabilitada && (
+          <HabilitadaBanner
+            diaHabilitada={diaHabilitada}
+            inicioHabilitada={inicioHabilitada}
+            finHabilitada={finHabilitada}
+          ></HabilitadaBanner>
+        )}
+        {turneraHabilitada && (
+          <div className={`Calendar__container view-${view}`}>
+            {loading && (
+              <div className="Calendar__spinner-overlay">
+                <Spinner />
+              </div>
+            )}
+            {/* <Anuncio/> */}
+            {!loading && (
+              <Calendar
+                localizer={localizer}
+                events={turnos}
+                views={["month", "day"]}
+                view={view}
+                date={diaSeleccionado}
+                onSelectSlot={handleSelectSlot}
+                onView={handlerViewChange}
+                onNavigate={(newDate) => {
+                  if (
+                    dayjs(newDate).isBefore(minDate, "month") ||
+                    dayjs(newDate).isAfter(maxDate, "month")
+                  )
+                    return;
+                  setDiaSeleccionado(newDate);
+                }}
+                selectable
+                longPressThreshold={1}
+                drilldownView={null}
+                components={{
+                  dateCellWrapper: CustomDateCellWrapper,
+                  timeSlotWrapper: CustomTimeSlotWrapper,
+                  toolbar: (props) => (
+                    <CustomToolbar
+                      {...props}
+                      esDiaNoLaborable={esDiaNoLaborable}
+                      minDate={minDate}
+                      maxDate={maxDate}
+                      setDiaSeleccionado={setDiaSeleccionado}
+                    />
+                  ),
+                }}
+                min={
+                  view === "day"
+                    ? dayjs().hour(horaMin).minute(0).toDate()
+                    : minDate
+                }
+                max={
+                  view === "day"
+                    ? dayjs().hour(horaMax).minute(0).toDate()
+                    : maxDate
+                }
+                timeslots={3}
+                step={20}
+                showMultiDayTimes={false}
+                messages={{
+                  next: "Siguiente",
+                  previous: "Anterior",
+                  today: "Hoy",
+                  month: "Mes",
+                  day: "Dia",
+                }}
+              />
+            )}
+          </div>
+        )}
       </div>
     </>
   );
