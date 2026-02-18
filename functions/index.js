@@ -106,10 +106,7 @@ exports.crearReserva = onCall(
   },
   async (request) => {
     // Validar que llamada se hizo en el horario de apertura de la turnera
-    const configDoc = await db
-      .collection(COLS.APERTURA_CONFIG)
-      .doc("horarios")
-      .get();
+    const configDoc = await db.collection(COLS.APERTURA).doc("horarios").get();
     if (!configDoc.exists) {
       throw new HttpsError(
         "internal",
@@ -207,7 +204,9 @@ exports.crearReserva = onCall(
         if (emailSnap.exists) {
           const data = emailSnap.data();
           if (data.start && data.start.toDate() > new Date()) {
-            throw new HttpsError("already-exists", "EMAIL_RESERVED");
+            throw new HttpsError("already-exists", "EMAIL_RESERVED", {
+              fechaReserva: data.start.toDate().toISOString(),
+            });
           }
         }
 

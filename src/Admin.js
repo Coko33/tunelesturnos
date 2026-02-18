@@ -407,19 +407,9 @@ export default function Admin() {
 
   return (
     <>
-      <SelectorApertura></SelectorApertura>
       <div className="admin__headerContainer">
         <h1>Panel de Administración</h1>
         <button onClick={logout}>Salir</button>
-
-        <div className="admin__actions">
-          <button
-            onClick={imprimirTablaTurnos}
-            className="bg-gray-800 text-white px-4 py-2 rounded shadow hover:bg-black"
-          >
-            🖨️ Descargar Planilla para Imprimir
-          </button>
-        </div>
 
         {/* <div className="p-4 border rounded-lg shadow-sm">
           <h2 className="text-xl font-bold mb-4">Cronograma de Turnos</h2>
@@ -504,21 +494,42 @@ export default function Admin() {
       </div>
 
       <div className="admin__tablaFranjaContainer">
-        <DatePicker
-          selected={inicioFranja}
-          onChange={(date) => setInicioFranja(date)}
-          showTimeSelect
-          dateFormat="Pp"
-        />
-        <DatePicker
-          selected={finFranja}
-          onChange={(date) => setFinFranja(date)}
-          showTimeSelect
-          dateFormat="Pp"
-        />
-        <button onClick={() => fetchTurnosByFranja(inicioFranja, finFranja)}>
-          Buscar
-        </button>
+        <p>Buscar turnos por franja de tiempo:</p>
+        <div className="admin__datePickerContainer">
+          <div className="admin__datePickerDesde">
+            <p>Desde:</p>
+            <DatePicker
+              selected={inicioFranja}
+              onChange={(date) => setInicioFranja(date)}
+              portalId="root-portal"
+              showTimeSelect
+              dateFormat="Pp"
+              className="admin__datePicker"
+            />
+          </div>
+          <div className="admin__datePickerHasta">
+            <p>Hasta:</p>
+            <DatePicker
+              selected={finFranja}
+              onChange={(date) => setFinFranja(date)}
+              portalId="root-portal"
+              showTimeSelect
+              dateFormat="Pp"
+              className="admin__datePicker"
+            />
+          </div>
+          <button onClick={() => fetchTurnosByFranja(inicioFranja, finFranja)}>
+            Buscar
+          </button>
+          <div className="admin__actions">
+            <button
+              onClick={imprimirTablaTurnos}
+              className="bg-gray-800 text-white px-4 py-2 rounded shadow hover:bg-black"
+            >
+              🖨️ Descargar Planilla para Imprimir
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="admin__tableContainer">
@@ -561,6 +572,7 @@ export default function Admin() {
           <p>No hay turnos registrados.</p>
         )}
       </div>
+      <SelectorApertura></SelectorApertura>
       {/*       <div>
         <p>Turnos caidos sin relevar: {pendientes}</p>
         <button onClick={descargarLoteEmailsCSV}>Descargar lote</button>

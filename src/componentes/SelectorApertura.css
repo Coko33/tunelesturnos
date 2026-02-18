@@ -1,4 +1,26 @@
 .SelectorApertura__container {
+    position: relative;
     background-color: rgb(255, 209, 150);
     padding: 50px;
+    height: 200px;
+}
+.SelectorApertura__container .campo {
+    position: relative;
+    width: 50%;
+    height: 32px;
+}
+.SelectorApertura__container .pickers-row div {
+    position: relative;
+    height: 32px;
+    width: 50%;
+}
+.SelectorApertura__container button{
+    height: 32px;
+    padding: 8px 15px;
+    background-color: #5c35dc;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
 }

@@ -132,11 +132,13 @@ export default function Formulario({
           error.code === "functions/already-exists" &&
           error.message.startsWith("EMAIL_RESERVED")
         ) {
-          const dateStr = error.message.replace("EMAIL_RESERVED:", "");
-          const dateObj = dayjs(dateStr);
+          const fechaIso = error.details?.fechaReserva;
+          const dateObj = dayjs(fechaIso);
           const futureDate = dateObj.format("dddd D [de] MMMM [a las] HH:mm");
+          const fechaFinal =
+            futureDate.charAt(0).toUpperCase() + futureDate.slice(1);
           setSubmissionMessage(
-            `Ya tenés un turno confirmado o pendiente para el día ${futureDate}. Podés volver a usar este email cuando el turno haya pasado, o despues de 1 hora si no lo confirmaste`,
+            `Ya tenés un turno confirmado o pendiente para el día ${fechaFinal}. Podés volver a usar este email cuando el turno haya pasado.`,
           );
           setDeshabilitarBoton(true);
           emailInputRef.current?.focus();
